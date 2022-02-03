@@ -3,10 +3,11 @@
 # simple demo for the usage of module OpenMetra
 
 import sys
-import OpenMetra
+
+from openmetra import OpenMetra
 
 
-with OpenMetra.OpenMetra() as mh:           # open connection
+with OpenMetra() as mh:           # open connection
     if mh is None:                          # check
         print( 'connect error', file=sys.stderr)
         sys.exit()

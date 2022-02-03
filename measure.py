@@ -12,7 +12,7 @@ import sys
 import time
 import argparse
 
-import OpenMetra
+from openmetra import OpenMetra
 
 
 # Create the parser
@@ -68,7 +68,7 @@ args = my_parser.parse_args()
 
 
 # open connection to a Gossen Metrahit device
-with OpenMetra.OpenMetra() as mh:
+with OpenMetra() as mh:
 
     if mh is None:
         print( 'connect error', file=sys.stderr)
