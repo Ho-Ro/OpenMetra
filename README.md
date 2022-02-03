@@ -24,9 +24,10 @@ Switch the meter to transmit mode and retrieve the data with this simple program
 ```python
 #!/usr/bin/python
 
+import sys
 import OpenMetra
 
-with OpenMetra.OpenMetra() as mh:                     # open connection
+with OpenMetra.OpenMetra() as mh:           # open connection
     if mh is None:                          # check
         print( 'connect error', file=sys.stderr)
         sys.exit()
@@ -38,23 +39,26 @@ with OpenMetra.OpenMetra() as mh:                     # open connection
             break                           # exit
 ```
 
-The provided program `measure.py` allows to customize the received date with some options:
+The provided program [measure.py](https://github.com/Ho-Ro/OpenMetra/blob/main/measure.py)
+allows to customize the received date with some options:
 
 ````
-usage: measure.py [-h] [-c] [-d SECONDS] [-g] [-o] [-t] [-u] [-V]
+usage: measure.py [-h] [-c] [-g] [-n NUMBER] [-o] [-s SECONDS] [-t] [-u] [-V]
 
 Get data from Gossen METRAHit 29S
 
 optional arguments:
   -h, --help            show this help message and exit
   -c, --csv             create csv (together with -t and/or -u)
-  -d SECONDS, --duration SECONDS
-                        measure for a defined duration
   -g, --german          use comma as decimal separator, semicolon as field separator
-  -o, --overload        print OL values as NaN instead of skipping
+  -n NUMBER, --number NUMBER
+                        get NUMBER measurement values
+  -o, --overload        print OL values as "None" instead of skipping
+  -s SECONDS, --seconds SECONDS
+                        measure for a duration of SECONDS
   -t, --timestamp       print timestamp for each value
   -u, --unit            print unit of measured value
-  -V                    add verbosity
+  -V                    increase verbosity
 ````
 
 ## Protocol definition:

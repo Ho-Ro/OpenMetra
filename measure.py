@@ -24,22 +24,29 @@ my_parser.add_argument('-c',
                        '--csv',
                        action = 'store_true',
                        help = 'create csv (together with -t and/or -u)')
-my_parser.add_argument('-d',
-                       '--duration',
-                       action = 'store',
-                       dest = 'seconds',
-                       type = float,
-                       default = 0,
-                       help = 'measure for a defined duration' )
 my_parser.add_argument('-g',
                        '--german',
                        action = 'store_true',
                        help = 'use comma as decimal separator, semicolon as field separator')
+my_parser.add_argument('-n',
+                       '--number',
+                       action = 'store',
+                       dest = 'number',
+                       type = int,
+                       default = 0,
+                       help = 'get NUMBER measurement values' )
 my_parser.add_argument('-o',
                        '--overload',
                        dest = 'print_overload',
                        action = 'store_true',
-                       help = 'print OL values as NaN instead of skipping')
+                       help = 'print OL values as "None" instead of skipping')
+my_parser.add_argument('-s',
+                       '--seconds',
+                       action = 'store',
+                       dest = 'seconds',
+                       type = float,
+                       default = 0,
+                       help = 'measure for a duration of SECONDS' )
 my_parser.add_argument('-t',
                        '--timestamp',
                        dest = 'print_timestamp',
@@ -53,7 +60,8 @@ my_parser.add_argument('-u',
 my_parser.add_argument('-V',
                        action = 'count',
                        dest = 'verbose',
-                       help = 'add verbosity')
+                       default = 0,
+                       help = 'increase verbosity')
 
 # parse my argument
 args = my_parser.parse_args()
@@ -78,10 +86,18 @@ with OpenMetra.OpenMetra() as mh:
     else:
         field_sep = ' '
 
+    measurement = 0
     while True: # measurement loop
         try:
+            if args.number and measurement >= args.number:
+                break
+
             value = mh.get_measurement()
+            if value is None:
+                if not args.print_overload:
+                    continue
             measure_time =  time.time() - start_time
+            measurement += 1
 
             if args.seconds and ( measure_time > args.seconds ): # time over
                 break

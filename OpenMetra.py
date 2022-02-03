@@ -70,29 +70,55 @@ class OpenMetra:
     'Gossen METRAHit 29s data transfer via BD232 interface'
 
     #######################
+    # the class variables #
+    #######################
+
+    _known_devices = [ 0x0E ]   # METRAHit 29s, add other similar devices, e.g. 0x0C for 28s
+    _serial_device = ''         # serial device
+    _BD232 = None               # serial object for interface
+    _model = 0                  # detected model, e.g. 0x0E for 29s
+    _num_digits = 0             # either 5 (fast mode) or 6 (slow)
+    _digits = []                # 5 or 6 display digits
+    _dp = 0                     # position of decimal point
+    _sign = 0                   # sign
+    _ctmv = None                # Current type and measured variable
+    _special = 0                # Fuse, LowBat, etc.
+    _unit = ''                  # unit string
+    _value = ''                 # value string
+    _rate = 0                   # measurement rate
+    _verbose = 0                # debugging level
+
+
+    #######################
     # the class interface #
     #######################
 
-    def __init__( self, device = '/dev/ttyUSB0' ):
-        'Init internal data structures'
-        self._device = device
-        self._BD232 = None
-        self._digits = []
-        self._unit = ''
-        self._value = ''
-        self._num_digits = 0
-        self._decimal = 0
-        self._ctmv = 0
-        self._special = 0
-        self._rate = 0
-        self._verbose = 0
+    def __init__( self, serial_device = '/dev/ttyUSB0', known_devices = [ 0x0E ] ):
+        'Init internal data, e.g. the name of serial device'
+        self._serial_device = serial_device
+        self._known_devices = known_devices
 
 
-    def __enter__(self):
-        'Open the serial object and return "self" on success, "None" on error'
+    def __del__( self ):
+        self.close()
+
+
+    def __enter__( self ):
+        '''Automatically called at object entry via "with"
+        Open the serial object and return "self" on success, "None" on error'''
+        return self.open()
+
+
+    def __exit__(self, ctx_type, ctx_value, ctx_traceback):
+        'Automatically called et object exit via "with", clean up'
+        self.close()
+
+
+    def open( self ):
+        '''Open the serial connection and return "self" on success, "None" on error'''
         try:
             # open connection to BD232 interface
-            self._BD232 = serial.Serial( self._device, baudrate = 9600, timeout = 10 )
+            self._BD232 = serial.Serial( self._serial_device, baudrate = 9600, timeout = 10 )
         except:
             return None
         else:
@@ -101,15 +127,11 @@ class OpenMetra:
         return self
 
 
-    def __exit__(self, ctx_type, ctx_value, ctx_traceback):
-        'Clean up before exit'
-        self.close()
-
-
     def close( self ):
-        'Close the serial object'
+        'Close the connection to the meter, i.e. the serial object'
         if self._BD232:
             self._BD232.close()
+        self._BD232 = None
 
 
     def set_verbose( self, verbose ):
@@ -135,24 +157,25 @@ class OpenMetra:
     ######################
 
     def _get_value( self ):
-        'Internal function to get status and measurement value'
-        if 0x0E == self._start:                          # Device code METRAHit 29s, either "slow mode" or "fast config"
+        'Internal function to get status and measurement value from Metrahit device'
+        if self._start < 0x10:                           # Device code, either "slow mode" or "fast config"
+            self._model = self._start                    # remember device model
+            if self._model not in self._known_devices:
+                return None
             # 4 status bytes with info in low 4 bits
             self._ctmv = self._get_digit()               # byte 1: type index lsb
             self._special = self._get_digit()            # byte 2: xxxxZBLF (Zero, Beep, LowBat, Fuse)
             self._special += (self._get_digit()) << 4    # byte 3: xxxxMxxD (Man, Data)
             self._rs = self._get_digit()                 # byte 4: range and sign
-            self._decimal = self._rs & 0x7               #  - decimal_position 0..7
+            self._dp = self._rs & 0x7               #  - decimal position 0..7
             self._sign = self._rs & 0x8                  #  - sign
 
-            last_start = self._start
+            last_start = self._start                     # next byte will be either data digit or new start
             if self._start_detected():                   # start condition detected, it was "fast config"
                 self._rate = 0
                 if self._verbose:
-                    print( 'FAST:', hex(last_start), self._ctmv, hex(self._special), self._decimal, self._sign, file=sys.stderr )
-                self._decode_unit()
-                self._get_value()                        # get 2nd part (fast data)
-                return                                   # now we're done
+                    print( 'FAST:', hex(last_start), self._ctmv, hex(self._special), self._dp, self._sign, file=sys.stderr )
+                return self._get_value()                 # get 2nd part (fast data)
 
             # we are in "slow mode", get 6 data digits (low 4 bits)
             self._num_digits = 6
@@ -170,12 +193,11 @@ class OpenMetra:
             self._rate = self._get_digit()                # send intervall, 4: 1s
 
             if self._verbose:
-                print( 'SLOW:', hex(last_start), self._ctmv, hex(self._special), self._decimal, self._sign, self._rate, file=sys.stderr )
-            self._decode_unit()
+                print( 'SLOW:', hex(last_start), self._ctmv, hex(self._special), self._dp, self._sign, self._rate, file=sys.stderr )
 
         else: # 0x1x: fast data mode
             self._rs = self._start & 0x0F
-            self._decimal_position = self._rs & 0x7       #  - decimal_position 0..7
+            self._dp = self._rs & 0x7                     #  - decimal position 0..7
             self._sign = self._rs & 0x8                   #  - sign
             self._digits = []
             self._OL = False                              # overload detection
@@ -190,10 +212,9 @@ class OpenMetra:
         if self._verbose > 1:
             print( 'DIGITS:', self._digits, file=sys.stderr )
 
+        self._decode_unit()
         self._format_number()
-
         return self._value
-
 
     def _start_detected( self ):
         'Check for start condition'
@@ -221,7 +242,10 @@ class OpenMetra:
     def _decode_unit( self ):
         'Prepare unit string, correct decimal point position'
 
-        units = ['0x00', 'V_DC', 'V_ACDC', 'V_AC',      # 0x00 .. 0x03
+        if self._ctmv is None: # not yet seen (fast mode)
+            return
+
+        units = ['', 'V_DC', 'V_ACDC', 'V_AC',          # 0x00 .. 0x03
                  'mA_DC', 'mA_ACDC', 'A_DC', 'A_ACDC',  # 0x04 .. 0x07
                 'kOhm', 'nF', 'dBV', 'Hz',              # 0x08 .. 0x0B
                 'Hz', 'W', 'W', 'V_diode',              # 0x0C .. 0x0F
@@ -231,30 +255,29 @@ class OpenMetra:
                 'A', 'V', '0x1E', '0x1F',               # 0x1C .. 0x1F
         ]
 
-        self._unit = ''
-
-        if self._ctmv < 0x20:
+        if self._ctmv < len( units ):
             self._unit = units[ self._ctmv ]
-        if '' == self._unit:
+        else:
             self._unit = hex( self._ctmv )
 
         # reported decimal point position must be corrected for some ranges
+        # in fast mode these values are not correct up to 500 ms after start!
         if self._ctmv == 0x06:   # A_DC
-            self._decimal += 1
+            self._dp += 1
         elif self._ctmv == 0x07: # A_ACDC
-            self._decimal += 1
+            self._dp += 1
         elif self._ctmv == 0x09: # nF
-            self._decimal += 1
+            self._dp += 1
         elif self._ctmv == 0x0A: # dBV
-            self._decimal = 3    # dBV decimal is always three!
+            self._dp = 3    # dBV decimal is always three!
         elif self._ctmv == 0x0D: # W on mA range
-            self._decimal -= 2
+            self._dp -= 2
         elif self._ctmv == 0x0E: # W on A range
-            self._decimal -= 2
+            self._dp -= 2
         elif self._ctmv == 0x12: # can also be Fahrenheit (?)
-            self._decimal += 4
+            self._dp += 4
         elif self._ctmv == 0x1C: # A in power mode
-            self._decimal += 1
+            self._dp += 1
 
 
     def _format_number( self ):
@@ -266,12 +289,12 @@ class OpenMetra:
             if self._sign:
                 self._value += '-'
 
-            if self._decimal < 0: # special treatment e.g. for power modes
-                self._value += '.' # start with decimal point
-                self._value += -self._decimal * '0' # add some leading 0
+            if self._dp < 0:                    # special treatment e.g. for power modes
+                self._value += '.'              # start with decimal point
+                self._value += -self._dp * '0'  # add some leading zeros
             # reverse digit order
             for p in range( self._num_digits ):
-                if self._decimal == p:
+                if self._dp == p:
                     self._value += '.'
                 self._value += chr( self._digits[ self._num_digits - 1 - p ] + ord( '0' ) )
 
