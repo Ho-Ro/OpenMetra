@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 # get measement from multimeter Gossen METRAHit 29S via BD232 serial interface
@@ -24,6 +24,12 @@ my_parser.add_argument('-c',
                        '--csv',
                        action = 'store_true',
                        help = 'create csv (together with -t and/or -u)')
+my_parser.add_argument('-d',
+                       '--device',
+                       action = 'store',
+                       dest = 'serial_device',
+                       default = '/dev/ttyUSB0',
+                       help = 'device path of serial interface, default is "/dev/ttyUSB0"' )
 my_parser.add_argument('-g',
                        '--german',
                        action = 'store_true',
@@ -67,8 +73,8 @@ my_parser.add_argument('-V',
 args = my_parser.parse_args()
 
 
-# open connection to a Gossen Metrahit device
-with OpenMetra() as mh:
+# open connection to a Gossen Metrahit device, without argument it uses '/dev/ttyUSB0'
+with OpenMetra( serial_device ) as mh:
 
     if mh is None:
         print( 'connect error', file=sys.stderr)

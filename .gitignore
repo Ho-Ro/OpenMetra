@@ -1,4 +1,15 @@
 __pycache__
+
+*.egg-info
+*.tar.gz
+
+build
+dist
+deb_dist
+tmp
+
+Changelog
+
 *~
 .*~
 
