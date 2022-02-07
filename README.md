@@ -1,7 +1,7 @@
 # OpenMetra
 
-![METRAHit 29s](https://sigrok.org/wimg/5/52/Gmc_metrahit_29s_logo.png)
-![BD232](https://sigrok.org/wimg/thumb/8/88/Gossen_Metrawatt_BD232_1.jpg/180px-Gossen_Metrawatt_BD232_1.jpg)
+![METRAHit 29s](METRAHit29s.png)
+![BD232](BD232.png)
 
 The project OpenMetra receives data from a multimeter Gossen METRAHit 29S via the BD232 serial interface.
 The BD232 is powered by the RTS and DTR serial lines. Works with e.g. FTDI RS232 USB connection to /dev/ttyUSB0 (linux).
@@ -20,7 +20,8 @@ from [gossenmetrawatt.com](https://www.gossenmetrawatt.com/).
 ## Software
 
 Access to the multimeter and decoding of the received data is done in the OpenMetra class.
-Switch the meter to transmit mode and retrieve the data with this simple program:
+Just add the directory `openmetra` to your project and you're done.
+Switch the meter to transmit mode (press **DATA/CLEAR** and **ON** together) and retrieve the data with this simple program:
 
 ```python
 #!/usr/bin/python
@@ -30,22 +31,23 @@ import sys
 from openmetra import OpenMetra
 
 with OpenMetra() as mh: # open connection to '/dev/ttyUSB0', the serial path can be an optional parameter
-    if mh is None:      # check
+    if mh is None:      # could not connect
         print( 'connect error', file=sys.stderr)
         sys.exit()
-    while True:                           # run forever, stop with ^C
+    while True:                             # run forever, stop with ^C
         try:
-            print( mh.get_measurement() ) # print numeric value
-        except KeyboardInterrupt:         # ^C pressed, stop measurement
+            print( mh.get_measurement() )   # print numeric value
+        except KeyboardInterrupt:           # ^C pressed, stop measurement
             print()
-            break                         # exit
+            break                           # exit
 ```
 
 The provided program [OpenMetra](https://github.com/Ho-Ro/OpenMetra/blob/main/OpenMetra)
 allows to customize the received date with some options:
 
 ````
-usage: OpenMetra [-h] [-c] [-d SERIAL_DEVICE] [-g] [-n NUMBER] [-o] [-s SECONDS] [-t] [-u] [-V]
+usage: OpenMetra [-h] [-c] [-d SERIAL_DEVICE] [-f] [-g] [-n NUMBER] [-o] [-s SECONDS] [-t] [-u] [-U]
+                 [-V]
 
 Get data from Gossen METRAHit 29S
 
@@ -54,6 +56,7 @@ optional arguments:
   -c, --csv             create csv (together with -t and/or -u)
   -d SERIAL_DEVICE, --device SERIAL_DEVICE
                         device path of serial interface, default is "/dev/ttyUSB0"
+  -f, --format_values   print formatted values (instead of as shown on meter)
   -g, --german          use comma as decimal separator, semicolon as field separator
   -n NUMBER, --number NUMBER
                         get NUMBER measurement values
@@ -62,6 +65,7 @@ optional arguments:
                         measure for a duration of SECONDS
   -t, --timestamp       print timestamp for each value
   -u, --unit            print unit of measured value
+  -U, --unit_long       print unit of measured value with explanation, e.g. AC, DC, etc
   -V                    increase verbosity
 ````
 

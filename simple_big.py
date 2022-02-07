@@ -8,8 +8,9 @@ from openmetra import OpenMetra
 
 
 def print_big( string ):
+    '''print numerical data with big character on top of terminal screen'''
 
-    dot_5x8 = [
+    dor_matrix = [
         [' ### ', '  #  ', ' ### ', ' ####', '#    ', '#####', '  ###', '#####', ' ### ', ' ### ', '     ', '     ', '     ', '     '],
         ['#   #', ' ##  ', '#   #', '    #', '#  # ', '#    ', ' #   ', '    #', '#   #', '#   #', '  #  ', '     ', '     ', '     '],
         ['#   #', '# #  ', '    #', '   # ', '#  # ', '#### ', '#    ', '    #', '#   #', '#   #', '  #  ', '     ', '     ', '     '],
@@ -20,11 +21,11 @@ def print_big( string ):
         ['     ', '     ', '     ', '     ', '     ', '     ', '     ', '     ', '     ', '     ', '     ', '   # ', '     ', '     '],
     ]
 
-    y_size = len( dot_5x8 )
-    x_size = len( dot_5x8[0][0] )
+    y_size = len( dor_matrix )
+    x_size = len( dor_matrix[0][0] )
 
-    print( chr(27) + '[2J' )
-    print( chr(27) + '[H' )
+    print( chr(27) + '[2J' )    # clear screen
+    print( chr(27) + '[H' )     # cursor home
 
     if string is None:
         return
@@ -38,7 +39,7 @@ def print_big( string ):
             n = ord( c ) - ord('0')
             if n < 0:                       # correct for '+' ',' '-' '.'
                 n += 15
-            print( dot_5x8[ line ][ n ], end = '  ' )
+            print( dor_matrix[ line ][ n ], end = '  ' )
         print()
     print()
 

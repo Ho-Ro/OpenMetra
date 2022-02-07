@@ -30,6 +30,11 @@ my_parser.add_argument('-d',
                        dest = 'serial_device',
                        default = '/dev/ttyUSB0',
                        help = 'device path of serial interface, default is "/dev/ttyUSB0"' )
+my_parser.add_argument('-f',
+                       '--format_values',
+                       action = 'store_true',
+                       default = False,
+                       help = 'print formatted values (instead of as shown on meter)'),
 my_parser.add_argument('-g',
                        '--german',
                        action = 'store_true',
@@ -63,6 +68,11 @@ my_parser.add_argument('-u',
                        dest = 'print_unit',
                        action = 'store_true',
                        help = 'print unit of measured value')
+my_parser.add_argument('-U',
+                       '--unit_long',
+                       dest = 'print_unit_long',
+                       action = 'store_true',
+                       help = 'print unit of measured value with explanation, e.g. AC, DC, etc')
 my_parser.add_argument('-V',
                        action = 'count',
                        dest = 'verbose',
@@ -74,7 +84,7 @@ args = my_parser.parse_args()
 
 
 # open connection to a Gossen Metrahit device, without argument it uses '/dev/ttyUSB0'
-with OpenMetra( serial_device ) as mh:
+with OpenMetra( args.serial_device ) as mh:
 
     if mh is None:
         print( 'connect error', file=sys.stderr)
@@ -98,13 +108,15 @@ with OpenMetra( serial_device ) as mh:
             if args.number and measurement >= args.number:
                 break
 
-            value = mh.get_measurement()
-            if value is None:
-                if not args.print_overload:
-                    continue
+            value = mh.get_measurement( args.format_values )
+            if value is None and not args.print_overload:
+                continue
+            unit = mh.get_unit()
+            if (args.print_unit or args.print_unit_long) and unit == '':
+                continue
+
             measure_time =  time.time() - start_time
             measurement += 1
-
             if args.seconds and ( measure_time > args.seconds ): # time over
                 break
 
@@ -113,13 +125,31 @@ with OpenMetra( serial_device ) as mh:
                 if args.german:
                     timestamp = timestamp.replace( '.', ',' )
                 print( timestamp, end = field_sep )
+                if args.print_unit or args.print_unit_long:
+                    print ( 's', end = field_sep )
 
             if args.german:
                 value = value.replace( '.', ',' )
+
             print( value, end = '' )
 
-            if args.print_unit:
+            if args.print_unit_long:
+                print ( field_sep + mh.get_unit_long(), end = '' )
+            elif args.print_unit:
                 print ( field_sep + mh.get_unit(), end = '' )
+
+
+            if unit == 'W': # special case power -> followed by voltage and current
+                for t in ['v', 'c']: # display also voltage and current on the same line
+                    sys.stdout.flush()
+                    value = mh.get_measurement( args.format_values )
+                    if args.german:
+                        value = value.replace( '.', ',' )
+                    print ( field_sep + value, end = '' )
+                    if args.print_unit_long:
+                        print ( field_sep + mh.get_unit_long(), end = '' )
+                    elif args.print_unit:
+                        print ( field_sep + mh.get_unit(), end = '' )
 
             print()
 

@@ -83,7 +83,8 @@ class OpenMetra:
     _sign = 0                   # sign
     _ctmv = None                # Current type and measured variable
     _special = 0                # Fuse, LowBat, etc.
-    _unit = ''                  # unit string
+    _unit = ''                  # unit string (SI)
+    _unit_long = ''             # unit string (with explanation, e.g. AC, DC, etc.)
     _value = ''                 # value string
     _rate = 0                   # measurement rate
     _verbose = 0                # debugging level
@@ -139,17 +140,25 @@ class OpenMetra:
         self._verbose = verbose
 
 
-    def get_measurement( self ):
+    def get_measurement( self, format_value=False ):
         'Wait for one measurement and return the value as string'
         # wait for start condition
         while not self._start_detected():
             pass
-        return self._get_value()
+        if format_value:
+            return str( float( self._get_value() ) )
+        else:
+            return self._get_value()
 
 
     def get_unit( self ):
-        'Return the unit of last measurement as string'
+        'Return the SI unit string of last measurement'
         return self._unit
+
+
+    def get_unit_long( self ):
+        'Return the long unit string (with explanation, e.g. AC, DC, etc.) of last measurement'
+        return self._unit_long
 
 
     ######################
@@ -256,9 +265,11 @@ class OpenMetra:
         ]
 
         if self._ctmv < len( units ):
-            self._unit = units[ self._ctmv ]
+            self._unit_long = units[ self._ctmv ]
+            self._unit = self._unit_long.split('_')[0]
         else:
             self._unit = hex( self._ctmv )
+            self._si_unit = hex( self._ctmv )
 
         # reported decimal point position must be corrected for some ranges
         # in fast mode these values are not correct up to 500 ms after start!
