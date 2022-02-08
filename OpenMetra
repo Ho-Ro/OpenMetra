@@ -137,7 +137,9 @@ with OpenMetra( args.serial_device ) as mh:
                 print ( field_sep + mh.get_unit_long(), end = '' )
             elif args.print_unit:
                 print ( field_sep + mh.get_unit(), end = '' )
-
+            if args.verbose:
+                print ( field_sep + hex(mh._ctmv) + field_sep + mh.get_rs_string()
+                       + field_sep + mh.get_special_string(), end = '' )
 
             if unit == 'W': # special case power -> followed by voltage and current
                 for t in ['v', 'c']: # display also voltage and current on the same line
@@ -150,6 +152,9 @@ with OpenMetra( args.serial_device ) as mh:
                         print ( field_sep + mh.get_unit_long(), end = '' )
                     elif args.print_unit:
                         print ( field_sep + mh.get_unit(), end = '' )
+                    elif args.verbose:
+                        print ( field_sep + hex(mh._ctmv) + field_sep + mh.get_rs_string()
+                               + field_sep + mh.get_special_string(), end = '' )
 
             print()
 

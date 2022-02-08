@@ -79,10 +79,13 @@ class OpenMetra:
     _model = 0                  # detected model, e.g. 0x0E for 29s
     _num_digits = 0             # either 5 (fast mode) or 6 (slow)
     _digits = []                # 5 or 6 display digits
-    _dp = 0                     # position of decimal point
+    _rs = 0                     # range & sign
+    _rs_string = ''             # ... same as string
+    _dp = 0                     # range (position of decimal point)
     _sign = 0                   # sign
     _ctmv = None                # Current type and measured variable
     _special = 0                # Fuse, LowBat, etc.
+    _special_string = ''        # ... same as string
     _unit = ''                  # unit string (SI)
     _unit_long = ''             # unit string (with explanation, e.g. AC, DC, etc.)
     _value = ''                 # value string
@@ -161,6 +164,16 @@ class OpenMetra:
         return self._unit_long
 
 
+    def get_special_string( self ):
+        'Return the status bits as string'
+        return self._decode_special()
+
+
+    def get_rs_string( self ):
+        'Return range and sign as string'
+        return self._decode_rs()
+
+
     ######################
     # internal functions #
     ######################
@@ -182,8 +195,8 @@ class OpenMetra:
             last_start = self._start                     # next byte will be either data digit or new start
             if self._start_detected():                   # start condition detected, it was "fast config"
                 self._rate = 0
-                if self._verbose:
-                    print( 'FAST:', hex(last_start), self._ctmv, hex(self._special), self._dp, self._sign, file=sys.stderr )
+                if self._verbose > 1:
+                    print( 'FAST:', hex(last_start), self._ctmv, hex(self._special), self._dp, self._sign )
                 return self._get_value()                 # get 2nd part (fast data)
 
             # we are in "slow mode", get 6 data digits (low 4 bits)
@@ -201,8 +214,8 @@ class OpenMetra:
             self._ctmv += (self._get_digit()) << 4        # type index msb
             self._rate = self._get_digit()                # send intervall, 4: 1s
 
-            if self._verbose:
-                print( 'SLOW:', hex(last_start), self._ctmv, hex(self._special), self._dp, self._sign, self._rate, file=sys.stderr )
+            if self._verbose > 1:
+                print( 'SLOW:', hex(last_start), self._ctmv, hex(self._special), self._dp, self._sign, self._rate )
 
         else: # 0x1x: fast data mode
             self._rs = self._start & 0x0F
@@ -218,12 +231,13 @@ class OpenMetra:
                 else:
                     self._digits.append( digit )
 
-        if self._verbose > 1:
-            print( 'DIGITS:', self._digits, file=sys.stderr )
+        if self._verbose > 2:
+            print( 'DIGITS:', self._digits )
 
         self._decode_unit()
         self._format_number()
         return self._value
+
 
     def _start_detected( self ):
         'Check for start condition'
@@ -238,8 +252,8 @@ class OpenMetra:
             sys.stderr.write( 'Timeout (Enable transfer: hold down "DATA/CLEAR" while switching on)\n' )
             sys.exit()
         byte = ord( byte ) & 0x3F
-        if self._verbose > 2:
-            print( hex( byte ), file=sys.stderr )
+        if self._verbose > 3:
+            print( hex( byte ) )
         return byte
 
 
@@ -252,7 +266,9 @@ class OpenMetra:
         'Prepare unit string, correct decimal point position'
 
         if self._ctmv is None: # not yet seen (fast mode)
-            return
+            self._unit = ''
+            self._unit_long = ''
+            return ''
 
         units = ['', 'V_DC', 'V_ACDC', 'V_AC',          # 0x00 .. 0x03
                  'mA_DC', 'mA_ACDC', 'A_DC', 'A_ACDC',  # 0x04 .. 0x07
@@ -290,6 +306,8 @@ class OpenMetra:
         elif self._ctmv == 0x1C: # A in power mode
             self._dp += 1
 
+        return self._unit
+
 
     def _format_number( self ):
         'Prepare number string with sign and decimal point'
@@ -309,6 +327,50 @@ class OpenMetra:
                     self._value += '.'
                 self._value += chr( self._digits[ self._num_digits - 1 - p ] + ord( '0' ) )
 
+
+    def _decode_rs( self ):
+        if self._special is None: # not yet seen (fast mode)
+            return ''
+        self._rs_string = ''
+        if self._rs & 0x08:
+            self._rs_string += '-'
+        else:
+            self._rs_string += '+'
+        self._rs_string += str( self._rs & 0x07 )
+        return self._rs_string
+
+
+    def _decode_special( self ):
+        'Prepare special string'
+        self._special_string = ''
+        if self._special is None: # not yet seen (fast mode)
+            return ''
+        if self._special & 0x80:
+            self._special_string += 'M'
+        else:
+            self._special_string += '.'
+        self._special_string += '..'
+        if self._special & 0x10:
+            self._special_string += 'D'
+        else:
+            self._special_string += '.'
+        if self._special & 0x08:
+            self._special_string += 'Z'
+        else:
+            self._special_string += '.'
+        if self._special & 0x04:
+            self._special_string += 'B'
+        else:
+            self._special_string += '.'
+        if self._special & 0x02:
+            self._special_string += 'L'
+        else:
+            self._special_string += '.'
+        if self._special & 0x01:
+            self._special_string += 'F'
+        else:
+            self._special_string += '.'
+        return self._special_string
 
 
 ########################################################

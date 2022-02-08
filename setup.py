@@ -1,3 +1,5 @@
+__version__ = '0.1'
+
 import os
 import shutil
 import setuptools
@@ -5,7 +7,7 @@ import setuptools
 
 setuptools.setup(
     name="openmetra",
-    version="0.1",
+    version=__version__,
     author="Ho-Ro",
     author_email="horo@localhost",
     url="http://github.com/Ho-Ro/OpenMetra",

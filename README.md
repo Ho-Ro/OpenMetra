@@ -3,12 +3,13 @@
 ![METRAHit 29s](METRAHit29s.png)
 ![BD232](BD232.png)
 
-The project OpenMetra receives data from a multimeter Gossen METRAHit 29S via the BD232 serial interface.
-The BD232 is powered by the RTS and DTR serial lines. Works with e.g. FTDI RS232 USB connection to /dev/ttyUSB0 (linux).
+Receives data from a multimeter Gossen METRAHit 29S via BD232 serial interface.
+
+Tested with e.g. FTDI RS232 USB connection to /dev/ttyUSB0 (linux).
 
 Activate the transmission on the instrument with: 'SEt v SEnd <-/ OFF v on <-/',
 or at switch-on by depressing **DATA/CLEAR** and **ON** button together.
-Rate of data beeing sent into interface depends on the item 'rAtE' that can be set in the meter's menu.
+Rate of data beeing sent can be set in the meter's menu with the item 'rAtE'.
 
 
 ## Hardware
