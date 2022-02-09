@@ -112,7 +112,7 @@ with OpenMetra( args.serial_device ) as mh:
             if value is None and not args.print_overload:
                 continue
             unit = mh.get_unit()
-            if (args.print_unit or args.print_unit_long) and unit == '':
+            if (args.print_unit or args.print_unit_long) and unit == '': # skip output until unit is available
                 continue
 
             measure_time =  time.time() - start_time
@@ -157,7 +157,9 @@ with OpenMetra( args.serial_device ) as mh:
                                + field_sep + mh.get_special_string(), end = '' )
 
             print()
+            sys.stdout.flush()  # update redirectet output
 
         except KeyboardInterrupt:
             print()
+            sys.stdout.close()  # make 'tee' happy
             break

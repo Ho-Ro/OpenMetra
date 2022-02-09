@@ -1,4 +1,4 @@
-__version__ = '0.1'
+__version__ = "0.2"
 
 import os
 import shutil
@@ -14,7 +14,7 @@ setuptools.setup(
     description="Gossen METRAHit 29s data readout",
     long_description="Receive serial data, decode and print it with optional timestamp and unit",
     license="GPLv3",
-    platforms=['all'],
+    platforms=["all"],
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
@@ -22,9 +22,9 @@ setuptools.setup(
         "Operating System :: Debian Bullseye",
     ],
     python_requires=">=3.6",
-    install_requires=[],
+    install_requires=["matplotlib"],
     data_files=[
-        ("/usr/bin/", ["OpenMetra"]),
+        ("/usr/bin/", ["OpenMetra", "MetraPlot"]),
         ("/usr/share/doc/openmetra/", ["README.md"]),
         ("/usr/share/doc/openmetra/", ["LICENSE"]),
     ],

@@ -70,6 +70,22 @@ optional arguments:
   -V                    increase verbosity
 ````
 
+The program [MetraPlot](https://github.com/Ho-Ro/OpenMetra/blob/main/MetraPlot)
+displays the measured data nicely:
+
+````
+usage: MetraPlot [-h] [-V] [infile]
+
+Plot data - e.g. received from Gossen METRAHit 29S via program 'OpenMetra'
+
+positional arguments:
+  infile      read measurement data from optional infile, use stdin otherwise
+
+optional arguments:
+  -h, --help  show this help message and exit
+  -V          increase verbosity
+````
+
 ### Building and Installing a Debian Package
 
 The provided [Makefile](https://github.com/Ho-Ro/OpenMetra/blob/main/Makefile) allows to build a Debian package,

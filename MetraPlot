@@ -1,0 +1,128 @@
+#!/usr/bin/python3
+
+'''
+Simple demo program that reads the output of e.g. 'OpenMetra'
+and plots the measured values - either over time or by number.
+It uses the extra python package 'matplotlib' for visualisation.
+Install with: 'apt install python3-matplotlib' if missing.
+'''
+
+import sys
+import argparse
+import csv
+import matplotlib.pyplot as plt
+
+
+# create the parser
+my_parser = argparse.ArgumentParser(description='Plot data - e.g. received from Gossen METRAHit 29S via program \'OpenMetra\'')
+
+# add the arguments
+my_parser.add_argument( '-V',
+    action = 'count', dest = 'verbose', default = 0,
+    help = 'increase verbosity' )
+my_parser.add_argument( 'infile',
+    type=argparse.FileType( 'r' ), nargs='?', default=sys.stdin,
+    help = 'read measurement data from optional infile, use stdin otherwise' )
+# parse my argument
+args = my_parser.parse_args()
+
+# Use output of 'OpenMetra'
+# Format: no header, values are SI units s and V, separated either by space or comma
+# auto-detect the format
+# detect also "german" csv (comma as decimal separator and semicolon as field separator)
+
+one_line = args.infile.readline().rstrip('\n')    # get one line
+args.infile.seek( 0 )                # and rewind the input
+
+if args.verbose:
+    print( '1st line: "', one_line, '"', sep='' )
+
+time_unit = None
+data_unit = None
+time_index = None
+data_index = None
+
+# data file or csv file?
+if ',' in one_line and '.' in one_line: # csv
+    delim = ','
+elif ';' in one_line:   # german csv
+    delim = ';'
+else:                   # data file
+    delim = ' '
+elements = one_line.split( delim )
+num_elements = len( elements )
+dec_sep = '.'
+num_values = one_line.count( dec_sep )
+if 0 == num_values and ',' != delim:    # german data or csv
+    dec_sep = ','
+    num_values = one_line.count( dec_sep )
+if num_elements >= 4:   # "t.t 's' u.u 'V'"
+    time_index = 0
+    time_unit = elements[1]
+    data_index = 2
+    data_unit = elements[3]
+elif num_elements >= 2:
+    if num_values == 1: # "u.u 'V'"
+        data_index = 0
+        data_unit = elements[1]
+    else:               # "t.t u.u"
+        time_index = 0
+        data_index = 1
+else:                   # "u.u"
+    data_index = 0
+
+if args.verbose:
+    print( 'dec_sep: \'', dec_sep, '\', delim: \'', delim, '\'', sep='' )
+
+if args.verbose > 1:
+    print( 'time_index: ', time_index, ', time_unit: \'', time_unit,
+          '\', data_index: ', data_index, ', data_unit: \'', data_unit, '\'', sep='')
+
+# process the data input
+capture = csv.reader( args.infile, delimiter=delim )
+
+# separate into one (data) or two (time, data) lists
+time, data = [], []
+
+for row in capture:
+    if len( row ) < num_elements: # incomplete row
+        continue
+    if time_index is not None:
+        t = row[ time_index ]
+        if '.' != dec_sep:  # german data
+            t = t.replace( dec_sep, '.' )
+        time.append( float( t ) )
+    if data_index is not None:
+        d = row[ data_index ]
+        if '.' != dec_sep:
+            d = d.replace( dec_sep, '.' )
+        data.append( float( d ) )
+
+args.infile.close()
+
+if args.verbose > 1:
+    print( 'time_size: ', len( time ), ', data_size: ', len( data ), sep='' )
+
+if data_unit is None:
+    data_unit = 'Value'
+
+# prepare a nice picture
+figure, measure = plt.subplots( 1 )
+
+measure.set_title( 'Measurement' )
+
+if len( time ):
+    measure.plot( time, data )
+    xl = 'Time (s)'
+else:
+    measure.plot( data )
+    xl = 'N'
+
+measure.set(xlabel=xl, ylabel=data_unit )
+measure.grid( True )
+
+# arrange layout for good readability
+figure.tight_layout()
+
+# display everything
+plt.show()

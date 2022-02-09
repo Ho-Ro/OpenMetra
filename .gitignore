@@ -19,3 +19,6 @@ Changelog
 *.orig
 *.diff
 
+*.csv
+*.dat
+

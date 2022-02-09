@@ -16,7 +16,7 @@ dsc:
 # create a debian binary package
 .PHONY:	deb
 deb:	distclean
-	git log --pretty="%cs: %s [%h]" | > Changelog
+	git log --pretty="%cs: %s [%h]" > Changelog
 	python setup.py --command-packages=stdeb.command bdist_deb
 	ln `ls deb_dist/openmetra_*_all.deb | tail -1` .
 
