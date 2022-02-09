@@ -1,12 +1,14 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-# get measement from multimeter Gossen METRAHit 29S via BD232 serial interface
-# works with FTDI RS232 USB connection to /dev/ttyUSB0
-# switch on with: SEt v SEnd <-/ OFF v on <-/
-# or by holding DATA/CLEAR while switching on the instrument
-# the meter sends the measurement as 4bit digits with a rate of 9600 bit/s
-# the BD232 is powered by the RTS and DTR lines
+'''
+get measement from multimeter Gossen METRAHit 29S via BD232 serial interface
+works with FTDI RS232 USB connection to /dev/ttyUSB0
+switch on with: SEt v SEnd <-/ OFF v on <-/
+or by holding DATA/CLEAR while switching on the instrument
+the meter sends the measurement as 4bit digits with a rate of 9600 bit/s
+the BD232 is powered by the RTS and DTR lines
+'''
 
 import sys
 import time

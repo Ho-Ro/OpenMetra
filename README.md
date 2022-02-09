@@ -2,6 +2,7 @@
 
 ![METRAHit 29s](METRAHit29s.png)
 ![BD232](BD232.png)
+![MetraPlot result](temperature_256x192.png)
 
 Receives data from a multimeter Gossen METRAHit 29S via BD232 serial interface.
 
@@ -85,6 +86,8 @@ optional arguments:
   -h, --help  show this help message and exit
   -V          increase verbosity
 ````
+
+![MetraPlot result](temperature_640x480.png)
 
 ### Building and Installing a Debian Package
 

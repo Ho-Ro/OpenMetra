@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+# -*- coding: utf-8 -*-
 
 '''
 Simple demo program that reads the output of e.g. 'OpenMetra'
@@ -109,7 +110,7 @@ if data_unit is None:
 # prepare a nice picture
 figure, measure = plt.subplots( 1 )
 
-measure.set_title( 'Measurement' )
+measure.set_title( 'MetraPlot' )
 
 if len( time ):
     measure.plot( time, data )
