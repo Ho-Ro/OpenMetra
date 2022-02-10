@@ -15,27 +15,36 @@ import matplotlib.pyplot as plt
 
 
 # create the parser
-my_parser = argparse.ArgumentParser(description='Plot data - e.g. received from Gossen METRAHit 29S via program \'OpenMetra\'')
+ap = argparse.ArgumentParser(description='Plot data - e.g. received from Gossen METRAHit 29S via program \'OpenMetra\'')
 
 # add the arguments
-my_parser.add_argument( '-V',
+ap.add_argument( '-t', '--title',
+    action = 'store', default = 'MetraPlot',
+    help = "set the title of the plot, default is 'MetraPlot'")
+ap.add_argument( '-f', '--first_sample',
+    action = 'store', type = int, default = 0,
+    help = 'first sample to display')
+ap.add_argument( '-l', '--last_sample',
+    action = 'store', type = int, default = sys.maxsize,
+    help = 'last sample to display')
+ap.add_argument( '-V',
     action = 'count', dest = 'verbose', default = 0,
     help = 'increase verbosity' )
-my_parser.add_argument( 'infile',
-    type=argparse.FileType( 'r' ), nargs='?', default=sys.stdin,
+ap.add_argument( 'infile',
+    type = argparse.FileType( 'r' ), nargs = '?', default = sys.stdin,
     help = 'read measurement data from optional infile, use stdin otherwise' )
 # parse my argument
-args = my_parser.parse_args()
+options = ap.parse_args()
 
 # Use output of 'OpenMetra'
 # Format: no header, values are SI units s and V, separated either by space or comma
 # auto-detect the format
 # detect also "german" csv (comma as decimal separator and semicolon as field separator)
 
-one_line = args.infile.readline().rstrip('\n')    # get one line
-args.infile.seek( 0 )                # and rewind the input
+one_line = options.infile.readline().rstrip('\n')    # get one line
+options.infile.seek( 0 )                # and rewind the input
 
-if args.verbose:
+if options.verbose:
     print( '1st line: "', one_line, '"', sep='' )
 
 time_unit = None
@@ -72,51 +81,65 @@ elif num_elements >= 2:
 else:                   # "u.u"
     data_index = 0
 
-if args.verbose:
-    print( 'dec_sep: \'', dec_sep, '\', delim: \'', delim, '\'', sep='' )
+if options.verbose:
+    print( "dec_sep: '", dec_sep, "', delim: '", delim, "'", sep='' )
 
-if args.verbose > 1:
-    print( 'time_index: ', time_index, ', time_unit: \'', time_unit,
-          '\', data_index: ', data_index, ', data_unit: \'', data_unit, '\'', sep='')
+if options.verbose > 1:
+    print( "time_index: ", time_index, ", time_unit: '", time_unit,
+          "', data_index: ", data_index, ", data_unit: '", data_unit, "'", sep='')
 
 # process the data input
-capture = csv.reader( args.infile, delimiter=delim )
+capture = csv.reader( options.infile, delimiter=delim )
 
-# separate into one (data) or two (time, data) lists
-time, data = [], []
+# separate into one (data) or two (time, data) lists (plus number list)
+numbers, time, data = [], [], []
 
+number = -1
 for row in capture:
+    number += 1
     if len( row ) < num_elements: # incomplete row
         continue
     if time_index is not None:
         t = row[ time_index ]
         if '.' != dec_sep:  # german data
             t = t.replace( dec_sep, '.' )
-        time.append( float( t ) )
+        t = float( t )
+        if round( t ) < options.first_sample:
+            continue
+        if round( t ) > options.last_sample:
+            continue
+        time.append( t )
+    else:
+        if number < options.first_sample:
+            continue
+        if number > options.last_sample:
+            continue
+    numbers.append( number )
     if data_index is not None:
         d = row[ data_index ]
         if '.' != dec_sep:
             d = d.replace( dec_sep, '.' )
-        data.append( float( d ) )
+        d = float( d )
+        data.append( d )
 
-args.infile.close()
+options.infile.close()
 
-if args.verbose > 1:
-    print( 'time_size: ', len( time ), ', data_size: ', len( data ), sep='' )
+if options.verbose > 1:
+    print( 'numbers_size: ', len( numbers ), ', time_size: ', len( time ), ', data_size: ', len( data ), sep='' )
 
 if data_unit is None:
     data_unit = 'Value'
 
-# prepare a nice picture
+# prepare a nice picture with the help of 'matplotlib.pyplot'
 figure, measure = plt.subplots( 1 )
 
-measure.set_title( 'MetraPlot' )
+measure.set_title( options.title )
 
 if len( time ):
     measure.plot( time, data )
     xl = 'Time (s)'
 else:
-    measure.plot( data )
+    measure.plot( numbers, data )
     xl = 'N'
 
 measure.set(xlabel=xl, ylabel=data_unit )

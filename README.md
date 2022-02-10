@@ -75,16 +75,22 @@ The program [MetraPlot](https://github.com/Ho-Ro/OpenMetra/blob/main/MetraPlot)
 displays the measured data nicely:
 
 ````
-usage: MetraPlot [-h] [-V] [infile]
+usage: MetraPlot [-h] [-t TITLE] [-f FIRST_SAMPLE] [-l LAST_SAMPLE] [-V] [infile]
 
 Plot data - e.g. received from Gossen METRAHit 29S via program 'OpenMetra'
 
 positional arguments:
-  infile      read measurement data from optional infile, use stdin otherwise
+  infile                read measurement data from optional infile, use stdin otherwise
 
 optional arguments:
-  -h, --help  show this help message and exit
-  -V          increase verbosity
+  -h, --help            show this help message and exit
+  -t TITLE, --title TITLE
+                        set the title of the plot, default is 'MetraPlot'
+  -f FIRST_SAMPLE, --first_sample FIRST_SAMPLE
+                        first sample to display
+  -l LAST_SAMPLE, --last_sample LAST_SAMPLE
+                        last sample to display
+  -V                    increase verbosity
 ````
 
 ![MetraPlot result](temperature_640x480.png)
@@ -158,6 +164,52 @@ Also V DC, A DC and functions when send interval >50 ms.
 ````
 29S: In case of power measurement there are sent 3 of these blocks
 with delay 200 ms in order power - W, voltage - V, current - A.
+
+### Function Encoding
+
+The meter's function is transmitted in `Current type measuring variable 1` (fast mode)
+or `Current type measuring variable 1` and `Current type measuring variable 2` for slow mode.
+Thes values were verified with my METRAHit 29s:
+````
+-------------------------------------
+| Function  | Variable2 | Variable1 |
+|    -      |   0000    |   0000    |
+|  V DC     |   0000    |   0001    |
+|  V ACDC   |   0000    |   0010    |
+|  V AC     |   0000    |   0011    |
+| mA DC     |   0000    |   0100    |
+| mA ACDC   |   0000    |   0101    |
+|  A DC     |   0000    |   0110    |
+|  A ACDC   |   0000    |   0111    |
+|-----------+-----------+-----------|
+|  Ohm      |   0000    |   1000    |
+|  Farad    |   0000    |   1001    |
+|  dBV      |   0000    |   1010    |
+|  Hz UACDC |   0000    |   1011    |
+|  Hz UAC   |   0000    |   1100    |
+|  W (mA)   |   0000    |   1101    |
+|  W (A)    |   0000    |   1110    |
+|  Diode    |   0000    |   1111    |
+|-----------+-----------+-----------|
+| Dio buzz  |   0001    |   0000    |
+| Ohm buzz  |   0001    |   0001    |
+|  Temp     |   0001    |   0010    |
+|    -      |   0001    |   0011    |
+|    -      |   0001    |   0100    |
+|    -      |   0001    |   0101    |
+|    -      |   0001    |   0110    |
+|    -      |   0001    |   0111    |
+|-----------+-----------+-----------|
+|    -      |   0001    |   1000    |
+|    -      |   0001    |   1001    |
+|    -      |   0001    |   1010    |
+| mA (W)    |   0001    |   1011    |
+|  A (W)    |   0001    |   1100    |
+|  V (W)    |   0001    |   1101    |
+|  V DC     |   0001    |   1110    |
+|  V DC     |   0001    |   1111    |
+-------------------------------------
+````
 
 - See also:
 https://www.mikrocontroller.net/attachment/22868/22SM-29S_Interface_Protocol1.pdf

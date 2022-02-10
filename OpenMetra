@@ -18,86 +18,86 @@ from openmetra import OpenMetra
 
 
 # Create the parser
-my_parser = argparse.ArgumentParser(description='Get data from Gossen METRAHit 29S')
+ap = argparse.ArgumentParser(description='Get data from Gossen METRAHit 29S')
 
 # Add the arguments
 
-my_parser.add_argument('-c',
-                       '--csv',
-                       action = 'store_true',
-                       help = 'create csv (together with -t and/or -u)')
-my_parser.add_argument('-d',
-                       '--device',
-                       action = 'store',
-                       dest = 'serial_device',
-                       default = '/dev/ttyUSB0',
-                       help = 'device path of serial interface, default is "/dev/ttyUSB0"' )
-my_parser.add_argument('-f',
-                       '--format_values',
-                       action = 'store_true',
-                       default = False,
-                       help = 'print formatted values (instead of as shown on meter)'),
-my_parser.add_argument('-g',
-                       '--german',
-                       action = 'store_true',
-                       help = 'use comma as decimal separator, semicolon as field separator')
-my_parser.add_argument('-n',
-                       '--number',
-                       action = 'store',
-                       dest = 'number',
-                       type = int,
-                       default = 0,
-                       help = 'get NUMBER measurement values' )
-my_parser.add_argument('-o',
-                       '--overload',
-                       dest = 'print_overload',
-                       action = 'store_true',
-                       help = 'print OL values as "None" instead of skipping')
-my_parser.add_argument('-s',
-                       '--seconds',
-                       action = 'store',
-                       dest = 'seconds',
-                       type = float,
-                       default = 0,
-                       help = 'measure for a duration of SECONDS' )
-my_parser.add_argument('-t',
-                       '--timestamp',
-                       dest = 'print_timestamp',
-                       action = 'store_true',
-                       help = 'print timestamp for each value')
-my_parser.add_argument('-u',
-                       '--unit',
-                       dest = 'print_unit',
-                       action = 'store_true',
-                       help = 'print unit of measured value')
-my_parser.add_argument('-U',
-                       '--unit_long',
-                       dest = 'print_unit_long',
-                       action = 'store_true',
-                       help = 'print unit of measured value with explanation, e.g. AC, DC, etc')
-my_parser.add_argument('-V',
-                       action = 'count',
-                       dest = 'verbose',
-                       default = 0,
-                       help = 'increase verbosity')
+ap.add_argument('-c',
+                '--csv',
+                action = 'store_true',
+                help = 'create csv (together with -t and/or -u)')
+ap.add_argument('-d',
+                '--device',
+                action = 'store',
+                dest = 'serial_device',
+                default = '/dev/ttyUSB0',
+                help = 'device path of serial interface, default is "/dev/ttyUSB0"' )
+ap.add_argument('-f',
+                '--format_values',
+                action = 'store_true',
+                default = False,
+                help = 'print formatted values (instead of as shown on meter)'),
+ap.add_argument('-g',
+                '--german',
+                action = 'store_true',
+                help = 'use comma as decimal separator, semicolon as field separator')
+ap.add_argument('-n',
+                '--number',
+                action = 'store',
+                dest = 'number',
+                type = int,
+                default = 0,
+                help = 'get NUMBER measurement values' )
+ap.add_argument('-o',
+                '--overload',
+                dest = 'print_overload',
+                action = 'store_true',
+                help = 'print OL values as "None" instead of skipping')
+ap.add_argument('-s',
+                '--seconds',
+                action = 'store',
+                dest = 'seconds',
+                type = float,
+                default = 0,
+                help = 'measure for a duration of SECONDS' )
+ap.add_argument('-t',
+                '--timestamp',
+                dest = 'print_timestamp',
+                action = 'store_true',
+                help = 'print timestamp for each value')
+ap.add_argument('-u',
+                '--unit',
+                dest = 'print_unit',
+                action = 'store_true',
+                help = 'print unit of measured value')
+ap.add_argument('-U',
+                '--unit_long',
+                dest = 'print_unit_long',
+                action = 'store_true',
+                help = 'print unit of measured value with explanation, e.g. AC, DC, etc')
+ap.add_argument('-V',
+                action = 'count',
+                dest = 'verbose',
+                default = 0,
+                help = 'increase verbosity')
 
 # parse my argument
-args = my_parser.parse_args()
+options = ap.parse_args()
 
 
 # open connection to a Gossen Metrahit device, without argument it uses '/dev/ttyUSB0'
-with OpenMetra( args.serial_device ) as mh:
+with OpenMetra( options.serial_device ) as mh:
 
     if mh is None:
         print( 'connect error', file=sys.stderr)
         sys.exit()
 
-    mh.set_verbose( args.verbose )
+    mh.set_verbose( options.verbose )
 
     start_time = time.time()
 
-    if args.csv:
-        if args.german:
+    if options.csv:
+        if options.german:
             field_sep = ';'
         else:
             field_sep = ','
@@ -107,54 +107,54 @@ with OpenMetra( args.serial_device ) as mh:
     measurement = 0
     while True: # measurement loop
         try:
-            if args.number and measurement >= args.number:
+            if options.number and measurement >= options.number:
                 break
 
-            value = mh.get_measurement( args.format_values )
-            if value is None and not args.print_overload:
+            value = mh.get_measurement( options.format_values )
+            if value is None and not options.print_overload:
                 continue
             unit = mh.get_unit()
-            if (args.print_unit or args.print_unit_long) and unit == '': # skip output until unit is available
+            if (options.print_unit or options.print_unit_long) and unit == '': # skip output until unit is available
                 continue
 
             measure_time =  time.time() - start_time
             measurement += 1
-            if args.seconds and ( measure_time > args.seconds ): # time over
+            if options.seconds and ( measure_time > options.seconds ): # time over
                 break
 
-            if args.print_timestamp: # seconds since start with 3 decimal digits
+            if options.print_timestamp: # seconds since start with 3 decimal digits
                 timestamp = str( round( measure_time, 3 ) )
-                if args.german:
+                if options.german:
                     timestamp = timestamp.replace( '.', ',' )
                 print( timestamp, end = field_sep )
-                if args.print_unit or args.print_unit_long:
+                if options.print_unit or options.print_unit_long:
                     print ( 's', end = field_sep )
 
-            if args.german:
+            if options.german:
                 value = value.replace( '.', ',' )
 
             print( value, end = '' )
 
-            if args.print_unit_long:
+            if options.print_unit_long:
                 print ( field_sep + mh.get_unit_long(), end = '' )
-            elif args.print_unit:
+            elif options.print_unit:
                 print ( field_sep + mh.get_unit(), end = '' )
-            if args.verbose:
+            if options.verbose:
                 print ( field_sep + hex(mh._ctmv) + field_sep + mh.get_rs_string()
                        + field_sep + mh.get_special_string(), end = '' )
 
             if unit == 'W': # special case power -> followed by voltage and current
                 for t in ['v', 'c']: # display also voltage and current on the same line
                     sys.stdout.flush()
-                    value = mh.get_measurement( args.format_values )
-                    if args.german:
+                    value = mh.get_measurement( options.format_values )
+                    if options.german:
                         value = value.replace( '.', ',' )
                     print ( field_sep + value, end = '' )
-                    if args.print_unit_long:
+                    if options.print_unit_long:
                         print ( field_sep + mh.get_unit_long(), end = '' )
-                    elif args.print_unit:
+                    elif options.print_unit:
                         print ( field_sep + mh.get_unit(), end = '' )
-                    elif args.verbose:
+                    elif options.verbose:
                         print ( field_sep + hex(mh._ctmv) + field_sep + mh.get_rs_string()
                                + field_sep + mh.get_special_string(), end = '' )
 
