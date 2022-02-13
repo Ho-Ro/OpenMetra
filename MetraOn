@@ -1,0 +1,32 @@
+#!/usr/bin/python
+
+# switch the meter on and enable send mode
+
+import sys
+import time
+
+from openmetra import OpenMetra
+
+
+with OpenMetra() as mh: # open connection to '/dev/ttyUSB0', the serial path can be an optional parameter
+    if mh is None:      # could not conect
+        print( 'connect error', file=sys.stderr)
+        sys.exit()
+
+    try:
+        mh.wakeup()
+        time.sleep( .1 )
+        mh.flush_input()
+
+        mh.send_command( mh.CMD_FW_STATUS ) #
+        mh.decode( mh.get_cmd_response(), sys.stderr ) #
+        time.sleep( .1 )
+        mh.flush_input()
+
+        mh.set_mode( mh.MODE_SEND ) # switch to send mode
+        time.sleep( .1 )
+        mh.flush_input()
+
+    except KeyboardInterrupt:           # ^C pressed, stop measurement
+        print( '' )
+

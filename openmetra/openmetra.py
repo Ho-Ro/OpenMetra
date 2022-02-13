@@ -73,10 +73,15 @@ class OpenMetra:
     # the class variables #
     #######################
 
-    _known_devices = [ 0x0E ]   # METRAHit 29s, add other similar devices, e.g. 0x0C for 28s
+    METRAHIT29S = 0x0E
+
+    _known_devices = [ 0x0E ]  # METRAHit 29s, add other similar devices, e.g. 0x0C for 28s
     _serial_device = ''         # serial device
+    _timeout = 10               # seriel timeout
     _BD232 = None               # serial object for interface
     _model = 0                  # detected model, e.g. 0x0E for 29s
+    _start = 0                  # storage for detected start byte
+    _unexpected_start = False   # start byte was seen during data input
     _num_digits = 0             # either 5 (fast mode) or 6 (slow)
     _digits = []                # 5 or 6 display digits
     _rs = 0                     # range & sign
@@ -92,15 +97,36 @@ class OpenMetra:
     _rate = 0                   # measurement rate
     _verbose = 0                # debugging level
 
+    _units = ['', 'V_DC', 'V_ACDC', 'V_AC',     # 0x00 .. 0x03
+        'mA_DC', 'mA_ACDC', 'A_DC', 'A_ACDC',   # 0x04 .. 0x07
+        'kOhm', 'nF', 'dBV', 'Hz',              # 0x08 .. 0x0B
+        'Hz', 'W', 'W', 'V_diode',              # 0x0C .. 0x0F
+        'V_diode', '0x11', '°C', '0x13',        # 0x10 .. 0x13
+        '0x14', '0x15', '0x16', '0x17',         # 0x14 .. 0x17
+        '0x18', '0x19', '0x1A', 'mA',           # 0x18 .. 0x1B
+        'A', 'V', '0x1E', '0x1F',               # 0x1C .. 0x1F
+    ]
+
+    CMD_FW_STATUS = 3
+    CMD_MODE = 6
+    CMD_MEASURE = 8
+
+    MODE_NORMAL = 0
+    MODE_SEND = 1
+    MODE_OFF = 5
+    MODE_RESET = 6
+
+
 
     #######################
     # the class interface #
     #######################
 
-    def __init__( self, serial_device = '/dev/ttyUSB0', known_devices = [ 0x0E ] ):
+    def __init__( self, serial_device = '/dev/ttyUSB0', timeout = 10, known_devices = [ 0x0E ]  ):
         'Init internal data, e.g. the name of serial device'
         self._serial_device = serial_device
         self._known_devices = known_devices
+        self._timeout = timeout
 
 
     def __del__( self ):
@@ -118,16 +144,16 @@ class OpenMetra:
         self.close()
 
 
-    def open( self ):
+    def open( self, timeout=10 ):
         '''Open the serial connection and return "self" on success, "None" on error'''
         try:
             # open connection to BD232 interface
-            self._BD232 = serial.Serial( self._serial_device, baudrate = 9600, timeout = 10 )
+            self._BD232 = serial.Serial( self._serial_device, baudrate = 9600, timeout = timeout )
         except:
             return None
         else:
             time.sleep( .1 )
-            self._BD232.flushInput()
+            self.flush_input()
         return self
 
 
@@ -136,6 +162,22 @@ class OpenMetra:
         if self._BD232:
             self._BD232.close()
         self._BD232 = None
+
+
+    def flush_input( self ):
+        'Remove all pending input'
+        self._BD232.flushInput()
+
+
+    def wakeup( self ):
+        'Send serial data to switch the meter on'
+        self._BD232.write( bytearray( 42 ) )
+        time.sleep( 1 )
+        self.flush_input()
+
+
+    def set_timeout( self, timeout=10 ):
+        self._BD232.timeout( timeout )
 
 
     def set_verbose( self, verbose ):
@@ -180,69 +222,69 @@ class OpenMetra:
 
     def _get_value( self ):
         'Internal function to get status and measurement value from Metrahit device'
-        if self._start < 0x10:                           # Device code, either "slow mode" or "fast config"
-            self._model = self._start                    # remember device model
-            if self._model not in self._known_devices:
-                return None
+        if self._start >= 0x10:                         # we know that we're in fast mode
+            slow = False
+        else:                                           # can be fast or slow mode, table TM1 1b) or 2)
+            self._model = self._start                   # byte 1: remember device model
             # 4 status bytes with info in low 4 bits
-            self._ctmv = self._get_digit()               # byte 1: type index lsb
-            self._special = self._get_digit()            # byte 2: xxxxZBLF (Zero, Beep, LowBat, Fuse)
-            self._special += (self._get_digit()) << 4    # byte 3: xxxxMxxD (Man, Data)
-            self._rs = self._get_digit()                 # byte 4: range and sign
-            self._dp = self._rs & 0x7               #  - decimal position 0..7
-            self._sign = self._rs & 0x8                  #  - sign
+            self._ctmv = self._get_digit()              # byte 2: type index lsb
+            self._special = self._get_digit()           # byte 3: xxxxZBLF (Zero, Beep, LowBat, Fuse)
+            self._special += (self._get_digit()) << 4   # byte 4: xxxxMxxD (Man, Data)
+            self._rs = self._get_digit()                # byte 5: range and sign
+            self._dp = self._rs & 0x7                   #  - decimal position 0..7
+            self._sign = self._rs & 0x8                 #  - sign
+            byte_6 = self._get_byte()
+            if self._unexpected_start:
+                return False
+            if byte_6 >= 0x30:                          # ok, slow mode, stay in table TM1 2)
+                slow = True
+            else:                                       # change to table TM1 1a)
+                slow = False
 
-            last_start = self._start                     # next byte will be either data digit or new start
-            if self._start_detected():                   # start condition detected, it was "fast config"
-                self._rate = 0
-                if self._verbose > 1:
-                    print( 'FAST:', hex(last_start), self._ctmv, hex(self._special), self._dp, self._sign )
-                return self._get_value()                 # get 2nd part (fast data)
-
+        if slow:
             # we are in "slow mode", get 6 data digits (low 4 bits)
-            self._num_digits = 6
-            first = self._start & 0x0F
-            self._digits = [ first ]                     # 1st byte already received (in start)
-            self._OL = first >= 10                       # overload detection
-            for p in range( 1, self._num_digits ):       # bytes 2..6: 6 digits value
-                digit = self._get_digit()
-                if digit >= 10:
-                    self._OL = True
-                else:
-                    self._digits.append( digit )
-
-            self._ctmv += (self._get_digit()) << 4        # type index msb
-            self._rate = self._get_digit()                # send intervall, 4: 1s
-
-            if self._verbose > 1:
-                print( 'SLOW:', hex(last_start), self._ctmv, hex(self._special), self._dp, self._sign, self._rate )
-
-        else: # 0x1x: fast data mode
-            self._rs = self._start & 0x0F
-            self._dp = self._rs & 0x7                     #  - decimal position 0..7
-            self._sign = self._rs & 0x8                   #  - sign
+            byte_6 &= 0x0F
+            self._digits = [ byte_6 ]                   # 1st byte already received (in start)
+            self._OL = byte_6 >= 10                     # overload detection
+        else:
+            # we are in "fast mode", get 5 data digits (low 4 bits)
             self._digits = []
-            self._OL = False                              # overload detection
-            self._num_digits = 5
-            for p in range( self._num_digits ):           # bytes 1..5: 5 digits value
-                digit = self._get_byte() & 0x0F
-                if digit >= 10:
-                    self._OL = True
-                else:
-                    self._digits.append( digit )
+            self._OL = False
+
+        for p in range( 5 ):                            # fast: bytes 0..4 or slow: bytes 1..5
+            digit = self._get_digit()
+            if digit >= 10:
+                self._OL = True
+            else:
+                self._digits.append( digit )
+
+        if self._unexpected_start:
+            return False
+
+        if slow:                                        # fetch byte 12 and 13 of TM1 2)
+            self._ctmv += (self._get_digit()) << 4      # type index msb
+            self._rate = self._get_digit()              # send intervall, 4: 1s
+            if self._unexpected_start:
+                return False
+            if self._verbose > 1:
+                print( 'SLOW:', self._ctmv, hex(self._special), self._dp, self._sign, self._rate )
+        elif self._verbose > 1:
+            print( 'FAST:', self._ctmv, hex(self._special), self._dp, self._sign )
 
         if self._verbose > 2:
             print( 'DIGITS:', self._digits )
 
-        self._decode_unit()
+        self.decode_unit()
+        self._adjust_dp()
         self._format_number()
         return self._value
 
 
     def _start_detected( self ):
-        'Check for start condition'
+        'Check for start condition 0x0E'
         self._start = self._get_byte()
-        return self._start & 0x30 != 0x30
+        self._unexpected_start = False
+        return ( self._start in self._known_devices ) or ( self._start & 0x30 == 0x10 )
 
 
     def _get_byte( self ):
@@ -253,40 +295,37 @@ class OpenMetra:
             sys.exit()
         byte = ord( byte ) & 0x3F
         if self._verbose > 3:
-            print( hex( byte ) )
+            print( '_get_byte', hex( byte ) )
         return byte
 
 
     def _get_digit( self ):
         'Get one digit (4 MSB = 0)'
-        return self._get_byte() & 0x0F
+        byte = self._get_byte()
+        if byte < 0x30:
+            self._unexpected_start = True
+        return byte & 0x0F
 
 
-    def _decode_unit( self ):
-        'Prepare unit string, correct decimal point position'
-
-        if self._ctmv is None: # not yet seen (fast mode)
+    def decode_unit( self, ctmv=None ):
+        'Prepare unit string'
+        if ctmv is None:
+            ctmv = self._ctmv
+        if ctmv is None:
+            # not yet seen (fast mode)
             self._unit = ''
             self._unit_long = ''
             return ''
-
-        units = ['', 'V_DC', 'V_ACDC', 'V_AC',          # 0x00 .. 0x03
-                 'mA_DC', 'mA_ACDC', 'A_DC', 'A_ACDC',  # 0x04 .. 0x07
-                'kOhm', 'nF', 'dBV', 'Hz',              # 0x08 .. 0x0B
-                'Hz', 'W', 'W', 'V_diode',              # 0x0C .. 0x0F
-                'V_diode', '0x11', '°C', '0x13',        # 0x10 .. 0x13
-                '0x14', '0x15', '0x16', '0x17',         # 0x14 .. 0x17
-                '0x18', '0x19', '0x1A', 'mA',           # 0x18 .. 0x1B
-                'A', 'V', '0x1E', '0x1F',               # 0x1C .. 0x1F
-        ]
-
-        if self._ctmv < len( units ):
-            self._unit_long = units[ self._ctmv ]
+        if ctmv < len( self._units ):
+            self._unit_long = self._units[ ctmv ]
             self._unit = self._unit_long.split('_')[0]
         else:
-            self._unit = hex( self._ctmv )
-            self._si_unit = hex( self._ctmv )
+            self._unit = hex( ctmv )
+            self._si_unit = hex( ctmv )
+        return self._unit
 
+
+    def _adjust_dp( self ):
         # reported decimal point position must be corrected for some ranges
         # in fast mode these values are not correct up to 500 ms after start!
         if self._ctmv == 0x06:   # A_DC
@@ -306,8 +345,6 @@ class OpenMetra:
         elif self._ctmv == 0x1C: # A in power mode
             self._dp += 1
 
-        return self._unit
-
 
     def _format_number( self ):
         'Prepare number string with sign and decimal point'
@@ -322,7 +359,7 @@ class OpenMetra:
                 self._value += '.'              # start with decimal point
                 self._value += -self._dp * '0'  # add some leading zeros
             # reverse digit order
-            for p in range( self._num_digits ):
+            for p in range( len( self._digits ) ):
                 if self._dp == p:
                     self._value += '.'
                 self._value += chr( self._digits[ self._num_digits - 1 - p ] + ord( '0' ) )
@@ -371,6 +408,117 @@ class OpenMetra:
         else:
             self._special_string += '.'
         return self._special_string
+
+
+    def set_mode( self, mode ):
+        self.send_command( self.CMD_MODE, mode, mode )
+
+
+    def set_rate( self, rate_index=9 ):
+        rates = [.05, .05, .05, .05, .05, .05, .1, .2,   # 0..7
+                .5, 1, 2, 5, 10, 20, 30, 60,            # 8..15
+                120, 300, 600, 1200, 1800, 3600         # 16..21
+        ]
+        self.send_command( 4, 2, rate_index )
+        if rate_index > 11 and rate_index < len( rates ):
+            self._BD232.timeout = 2 * rates[ rate_index ]
+
+
+    def send_command( self, cmd, p0=0, p1=0x3F, p2=0x3F, p3=0x3F, p4=0x3F, p5=0x3F, p6=0x3F, p7=0x3F, p8=0x3F ):
+        data = bytearray()
+        data.append( 0x03 ) # addr<<2 | 0x03
+        data.append( 0x2b ) # +
+        data.append( 0x3f ) # ?
+        data.append( cmd ) #
+        data.append( p0 ) #
+        data.append( p1 ) #
+        data.append( p2 ) #
+        data.append( p3 ) #
+        data.append( p4 ) #
+        data.append( p5 ) #
+        data.append( p6 ) #
+        data.append( p7 ) #
+        data.append( p8 ) #
+
+        data = self._chksum_14( data )
+        data = self._encode_14_to_42( data )
+        self._BD232.write( data )
+
+
+    def _chksum_14( self, data ):
+        chs = 0
+        ba = bytearray()
+        for n in range( 13 ):
+            b = data[ n ]
+            chs += b
+            ba.append( b )
+        chs = (64 - chs) & 0x3F
+        ba.append( chs )
+        return ba
+
+
+    def _encode_14_to_42( self, data ):
+        buf = bytearray()
+        for n in range( 14 ):
+            mask = 0x01
+            for m in range( 3 ):
+                a = b = 0
+                if data[ n ] & mask:
+                    a = 0x0f
+                mask <<= 1
+                if data[ n ] & mask:
+                    b = 0xf0
+                mask <<= 1
+                buf.append( a | b )
+        return buf
+
+
+    def get_cmd_response( self ):
+        response = self._BD232.read( 14 )
+        return response
+
+
+    def decode( self, rsp, outfile=sys.stdout ):
+        if rsp[3] & 0x3F == 3:
+            return self._decode3( rsp, outfile )
+        elif rsp[3] & 0x3F == 8:
+            return self._decode8( rsp, outfile )
+        for b in rsp:
+            d = b & 0x3F
+            print( hex( d ), d, file=outfile )
+
+
+    def _decode3( self, rsp, outfile=sys.stdout ):
+        functions = [ '', 'AUTO', 'V_AC', 'V_ACDC', 'V_DC', 'Ohm', 'Diode', '°C', 'F', 'mA', 'A' ]
+        print( 'FW ver : ', rsp[5] & 0x3F, '.', rsp[4] & 0x3F, sep='', file=outfile )
+        model = rsp[12] & 0x3F
+        switch = rsp[6] & 0x3F
+        if self.METRAHIT29S == model:
+            model = 'METRAHit 29S'
+        print( 'Model  :', model, file=outfile )
+        print( 'Switch :', functions[ switch ], file=outfile )
+        print( 'Battery:', round( (rsp[11] & 0x3F) * 0.1, 1 ) , 'V', file=outfile )
+
+
+    def _decode8( self, rsp, outfile=sys.stdout ):
+        if rsp[3] & 0x3F == 8:
+            value = 0
+            mul = 1
+            for b in rsp[7:13]:
+                d = b & 0x3F
+                print( d, file=outfile )
+                value += d * mul
+                mul *= 10
+            print( 'Value:', value, file=outfile )
+            function = rsp[5] & 0x3F
+            print( 'Function:', self.decode_unit( function ), file=outfile )
+            print( 'Range:', rsp[6] & 0x0F, (rsp[6] & 0x10) >> 4, file=outfile  )
+
+
+'''
+response to cmd3: 4=fwmin, 5:fwmax, 6:switchpos, 7:fkt, 8:range, 9,10:?, 11:ubat*10, 12:model, 13:chksum
+response to cmd8: 5:fkt, 6:status, 7..12 digits, 13:chksum
+'''
 
 
 ########################################################

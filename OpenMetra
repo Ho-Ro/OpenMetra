@@ -49,10 +49,23 @@ ap.add_argument('-n',
                 default = 0,
                 help = 'get NUMBER measurement values' )
 ap.add_argument('-o',
+                '--on-off',
+                dest = 'on_off',
+                action = 'store_true',
+                help = 'switch meter automatically on/off')
+ap.add_argument('-O',
                 '--overload',
                 dest = 'print_overload',
                 action = 'store_true',
                 help = 'print OL values as "None" instead of skipping')
+ap.add_argument('-r',
+                '--rate',
+                action = 'store',
+                type = int,
+                dest = 'rate',
+                default = 9,
+                help = 'set index for measurement rate: 0..5: 50 ms, 6:0.1s, 7:0.2s, 8:0.5s, 9:1s, '
+                '10:2s, 11:5s, 12:10s, 13:20s, 14:30s, 15:1min, 16:2min, 17:5min, 18:10min, ..., default = 9 (1s)' )
 ap.add_argument('-s',
                 '--seconds',
                 action = 'store',
@@ -65,6 +78,12 @@ ap.add_argument('-t',
                 dest = 'print_timestamp',
                 action = 'store_true',
                 help = 'print timestamp for each value')
+ap.add_argument('-T',
+                '--timeout',
+                action = 'store',
+                type = int,
+                default = 10,
+                help = 'set timeout for serial port' )
 ap.add_argument('-u',
                 '--unit',
                 dest = 'print_unit',
@@ -86,15 +105,13 @@ options = ap.parse_args()
 
 
 # open connection to a Gossen Metrahit device, without argument it uses '/dev/ttyUSB0'
-with OpenMetra( options.serial_device ) as mh:
+with OpenMetra( options.serial_device, timeout=options.timeout ) as mh:
 
     if mh is None:
         print( 'connect error', file=sys.stderr)
         sys.exit()
 
     mh.set_verbose( options.verbose )
-
-    start_time = time.time()
 
     if options.csv:
         if options.german:
@@ -105,8 +122,27 @@ with OpenMetra( options.serial_device ) as mh:
         field_sep = ' '
 
     measurement = 0
-    while True: # measurement loop
-        try:
+    try:
+        if options.on_off:
+            mh.wakeup()
+            time.sleep( 0.1 )
+
+            if options.verbose:
+                mh.send_command( mh.CMD_FW_STATUS )
+                mh.decode( mh.get_cmd_response(), sys.stderr ) #
+                time.sleep( 0.1 )
+
+            mh.set_rate( options.rate )
+            time.sleep( 0.1 )
+
+            mh.set_mode( mh.MODE_SEND ) # switch to send mode
+            time.sleep( 0.1 )
+            mh.flush_input()
+
+
+        start_time = time.time()
+
+        while True: # measurement loop
             if options.number and measurement >= options.number:
                 break
 
@@ -161,7 +197,15 @@ with OpenMetra( options.serial_device ) as mh:
             print()
             sys.stdout.flush()  # update redirectet output
 
-        except KeyboardInterrupt:
-            print()
-            sys.stdout.close()  # make 'tee' happy
-            break
+    except KeyboardInterrupt:
+        print()
+
+    if options.on_off:
+        mh.wakeup()
+        time.sleep(.1)
+        mh.set_mode( mh.MODE_NORMAL ) # switch to normal mode
+        time.sleep(.1)
+        mh.set_mode( mh.MODE_OFF ) # switch to normal mode
+        time.sleep(.1)
+
+    sys.stdout.close()  # make 'tee' happy
