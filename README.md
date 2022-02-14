@@ -48,8 +48,8 @@ The provided program [OpenMetra](https://github.com/Ho-Ro/OpenMetra/blob/main/Op
 allows to customize the received date with some options:
 
 ````
-usage: OpenMetra [-h] [-c] [-d SERIAL_DEVICE] [-f] [-g] [-n NUMBER] [-o] [-s SECONDS] [-t] [-u] [-U]
-                 [-V]
+usage: OpenMetra [-h] [-c] [-d SERIAL_DEVICE] [-f] [-g] [-n NUMBER] [-o] [-O] [-r RATE] [-s SECONDS]
+                 [-t] [-T TIMEOUT] [-u] [-U] [-V]
 
 Get data from Gossen METRAHit 29S
 
@@ -62,10 +62,16 @@ optional arguments:
   -g, --german          use comma as decimal separator, semicolon as field separator
   -n NUMBER, --number NUMBER
                         get NUMBER measurement values
-  -o, --overload        print OL values as "None" instead of skipping
+  -o, --on-off          switch meter automatically on/off
+  -O, --overload        print OL values as "None" instead of skipping
+  -r RATE, --rate RATE  select index for measurement rate: 0:50ms, 1:0.1s, 2:0.2s, 3:0.5s, 4:1s,
+                        5:2s, 6:5s, 7:10s, 8:20s, 9:30s, 10:1min, 11:2min, 12:5min, 13:10min,
+                        default: 4 (1s)
   -s SECONDS, --seconds SECONDS
                         measure for a duration of SECONDS
   -t, --timestamp       print timestamp for each value
+  -T TIMEOUT, --timeout TIMEOUT
+                        set timeout for serial port
   -u, --unit            print unit of measured value
   -U, --unit_long       print unit of measured value with explanation, e.g. AC, DC, etc
   -V                    increase verbosity
@@ -94,6 +100,30 @@ optional arguments:
 ````
 
 ![MetraPlot result](temperature_640x480.png)
+
+The program [MetraSwitch](https://github.com/Ho-Ro/OpenMetra/blob/main/MetraSwitch)
+switches the instrument on and selects send mode or selects the measurement function or switches the intrument off:
+
+````
+usage: MetraSwitch [-h] [-d DEVICE] [-f FUNCTION] [-o] [-r RATE] [-V]
+
+Gossen METRAHit 29S: switch on and enable send mode or switch measurement function or switch off
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -d DEVICE, --device DEVICE
+                        device path of serial interface, default is "/dev/ttyUSB0"
+  -f FUNCTION, --function FUNCTION
+                        select measurement function: 1:V_DC, 2:V_ACDC, 3:V_AC, 4:mA_DC, 5:mA_ACDC,
+                        6:A_DC, 7:A_ACDC, 8:Ohm, 9:F, 10:dB, 11:Hz_Uacdc, 12:Hz_Uac, 17:Ohm buzzer,
+                        18:Temp, 22:pulseW, 23TRMS_mains, 24:Counter, 25:Events_Uacdc, 26:Events_Uac
+  -o, --off             switch the device off
+  -r RATE, --rate RATE  select index for measurement rate: 0:50ms, 1:0.1s, 2:0.2s, 3:0.5s, 4:1s,
+                        5:2s, 6:5s, 7:10s, 8:20s, 9:30s, 10:1min, 11:2min, 12:5min, 13:10min,
+                        default: 4 (1s)
+  -V                    increase verbosity
+````
+
 
 ### Building and Installing a Debian Package
 

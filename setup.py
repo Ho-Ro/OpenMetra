@@ -1,4 +1,4 @@
-__version__ = "0.2"
+__version__ = "0.3"
 
 import os
 import shutil
@@ -24,7 +24,7 @@ setuptools.setup(
     python_requires=">=3.6",
     install_requires=["matplotlib"],
     data_files=[
-        ("/usr/bin/", ["OpenMetra", "MetraPlot"]),
+        ("/usr/bin/", ["OpenMetra", "MetraSwitch", "MetraPlot"]),
         ("/usr/share/doc/openmetra/", ["README.md"]),
         ("/usr/share/doc/openmetra/", ["LICENSE"]),
     ],

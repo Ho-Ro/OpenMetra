@@ -1,0 +1,84 @@
+#!/usr/bin/python
+
+# switch the meter on, set measurement rate and enable send mode
+
+import sys
+import time
+import argparse
+
+from openmetra import OpenMetra
+
+# Create the parser
+ap = argparse.ArgumentParser(description=
+                'Gossen METRAHit 29S: switch on and enable send mode or switch measurement function or switch off')
+
+# Add the arguments
+
+ap.add_argument('-d',
+                '--device',
+                action = 'store',
+                default = '/dev/ttyUSB0',
+                help = 'device path of serial interface, default is "/dev/ttyUSB0"' )
+ap.add_argument('-f',
+                '--function',
+                action = 'store',
+                type = int,
+                dest = 'function',
+                default = 0,
+                help = '''select measurement function: 1:V_DC, 2:V_ACDC, 3:V_AC, 4:mA_DC, 5:mA_ACDC,
+                6:A_DC, 7:A_ACDC, 8:Ohm, 9:F, 10:dB, 11:Hz_Uacdc, 12:Hz_Uac, 17:Ohm buzzer,
+                18:Temp, 22:pulseW, 23TRMS_mains, 24:Counter, 25:Events_Uacdc, 26:Events_Uac''' )
+ap.add_argument('-o',
+                '--off',
+                action = 'store_true',
+                help = 'switch the device off' )
+ap.add_argument('-r',
+                '--rate',
+                action = 'store',
+                type = int,
+                dest = 'rate',
+                default = 4,
+                help = '''select index for measurement rate: 0:50ms, 1:0.1s, 2:0.2s, 3:0.5s, 4:1s, 5:2s, 6:5s,
+                7:10s, 8:20s, 9:30s, 10:1min, 11:2min, 12:5min, 13:10min, default: 4 (1s)''' )
+ap.add_argument('-V',
+                action = 'count',
+                dest = 'verbose',
+                default = 0,
+                help = 'increase verbosity')
+
+# parse my argument
+options = ap.parse_args()
+
+with OpenMetra( options.device ) as mh: # open connection to '/dev/ttyUSB0', the serial path can be an optional parameter
+    if mh is None:      # could not conect
+        print( 'connect error', file=sys.stderr)
+        sys.exit()
+
+    mh.set_verbose( options.verbose )
+
+    try:
+        if options.off:
+            mh.set_mode( mh.MODE_NORMAL )       # switch to normal mode
+            mh.send_command( mh.CMD_FW_STATUS ) # get status
+            mh.decode( mh.get_cmd_response(), sys.stderr )
+            mh.set_mode( mh.MODE_OFF )          # switch off
+
+        elif options.function:
+            mh.set_function( options.function ) # set measurement function
+            mh.decode( mh.get_cmd_response(), sys.stderr )
+
+        else:
+            mh.send_command( mh.CMD_FW_STATUS )
+            mh.decode( mh.get_cmd_response(), sys.stderr )
+            # rate 0: 0.05s, 1: 0.1s, 2:0.2s, 3:0.5s - FAST MODE
+            # 4:1s, 5: 2s, 6:5s, 7:10s, 8:20s, 9:30s, 10:60s, 11:2min, 12:5min, 13:10min
+            rate = options.rate
+            rate = mh.set_rate( rate )
+            print( 'Measurement rate:', rate, 's' )
+            if options.verbose > 1:
+                mh.decode( mh.get_cmd_response(), sys.stderr ) #
+
+            mh.set_mode( mh.MODE_SEND ) # switch to send mode
+
+    except KeyboardInterrupt:           # ^C pressed, stop measurement
+        print( '' )

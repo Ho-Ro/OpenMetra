@@ -63,9 +63,9 @@ ap.add_argument('-r',
                 action = 'store',
                 type = int,
                 dest = 'rate',
-                default = 9,
-                help = 'set index for measurement rate: 0..5: 50 ms, 6:0.1s, 7:0.2s, 8:0.5s, 9:1s, '
-                '10:2s, 11:5s, 12:10s, 13:20s, 14:30s, 15:1min, 16:2min, 17:5min, 18:10min, ..., default = 9 (1s)' )
+                default = 4,
+                help = '''select index for measurement rate: 0:50ms, 1:0.1s, 2:0.2s, 3:0.5s, 4:1s, 5:2s, 6:5s,
+                7:10s, 8:20s, 9:30s, 10:1min, 11:2min, 12:5min, 13:10min, default: 4 (1s)''' )
 ap.add_argument('-s',
                 '--seconds',
                 action = 'store',
@@ -125,20 +125,14 @@ with OpenMetra( options.serial_device, timeout=options.timeout ) as mh:
     try:
         if options.on_off:
             mh.wakeup()
-            time.sleep( 0.1 )
 
             if options.verbose:
                 mh.send_command( mh.CMD_FW_STATUS )
                 mh.decode( mh.get_cmd_response(), sys.stderr ) #
-                time.sleep( 0.1 )
 
             mh.set_rate( options.rate )
-            time.sleep( 0.1 )
 
             mh.set_mode( mh.MODE_SEND ) # switch to send mode
-            time.sleep( 0.1 )
-            mh.flush_input()
-
 
         start_time = time.time()
 
@@ -175,7 +169,7 @@ with OpenMetra( options.serial_device, timeout=options.timeout ) as mh:
                 print ( field_sep + mh.get_unit_long(), end = '' )
             elif options.print_unit:
                 print ( field_sep + mh.get_unit(), end = '' )
-            if options.verbose:
+            if options.verbose > 1 and mh._ctmv is not None and mh.get_rs_string() is not None:
                 print ( field_sep + hex(mh._ctmv) + field_sep + mh.get_rs_string()
                        + field_sep + mh.get_special_string(), end = '' )
 
@@ -190,7 +184,7 @@ with OpenMetra( options.serial_device, timeout=options.timeout ) as mh:
                         print ( field_sep + mh.get_unit_long(), end = '' )
                     elif options.print_unit:
                         print ( field_sep + mh.get_unit(), end = '' )
-                    elif options.verbose:
+                    elif options.verbose > 1:
                         print ( field_sep + hex(mh._ctmv) + field_sep + mh.get_rs_string()
                                + field_sep + mh.get_special_string(), end = '' )
 
@@ -202,10 +196,7 @@ with OpenMetra( options.serial_device, timeout=options.timeout ) as mh:
 
     if options.on_off:
         mh.wakeup()
-        time.sleep(.1)
         mh.set_mode( mh.MODE_NORMAL ) # switch to normal mode
-        time.sleep(.1)
         mh.set_mode( mh.MODE_OFF ) # switch to normal mode
-        time.sleep(.1)
 
     sys.stdout.close()  # make 'tee' happy
