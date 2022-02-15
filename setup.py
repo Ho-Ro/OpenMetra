@@ -11,7 +11,7 @@ setuptools.setup(
     author="Ho-Ro",
     author_email="horo@localhost",
     url="http://github.com/Ho-Ro/OpenMetra",
-    description="Gossen METRAHit 29s data readout",
+    description="Gossen METRAHit 29s remote control and data readout",
     long_description="Receive serial data, decode and print it with optional timestamp and unit",
     license="GPLv3",
     platforms=["all"],
@@ -24,7 +24,7 @@ setuptools.setup(
     python_requires=">=3.6",
     install_requires=["matplotlib"],
     data_files=[
-        ("/usr/bin/", ["OpenMetra", "MetraSwitch", "MetraPlot"]),
+        ("/usr/bin/", ["Metra", "MetraSwitch", "MetraPlot"]),
         ("/usr/share/doc/openmetra/", ["README.md"]),
         ("/usr/share/doc/openmetra/", ["LICENSE"]),
     ],

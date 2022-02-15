@@ -12,18 +12,19 @@ class OpenMetra:
 
     Get measurement data from multimeter Gossen METRAHit 29S via BD232 serial interface.
     The BD232 is powered by the RTS and DTR serial lines.
-    Works with FTDI RS232 USB connection to /dev/ttyUSB0 (linux).
-    Format is 9600 Bd, 8 bits + Start + Stop bit (only lower 6 bits are used.
+    Tested with FTDI and similar RS232 USB serial interface to "/dev/ttyUSB0" (linux),
+    should also work for Windows with e.g. serial_device="COM8".
+    Format is 9600 Bd, 8 bits + Start + Stop bit (only lower 6 bits are used).
     Activate the transmission with: 'SEt v SEnd <-/ OFF v on <-/',
     or at switch-on by depressing <DATA/CLEAR> and <ON> button together.
     Rate of data beeing sent into interface depends on item 'rAtE' set in menu.
 
     Protocol definition:
 
-    Measured data with fast rate (rate 50 ms, V_DC, A_DC only)
+    TM1a) Measured data with fast rate (rate 50 ms, V_DC, A_DC only)
     -----------------------------------------------
     |Byte| Output unit Bit0..Bit3       |Bit5|Bit4|
-    |----|------------------------------|----|----|
+    |----+------------------------------+----+----|
     |  1 | Measuring range, sign        |  0 |  1 |
     |  2 | Units                        |  1 |  1 |
     |  3 | Tens                         |  1 |  1 |
@@ -32,10 +33,10 @@ class OpenMetra:
     |  6 | TenThousands                 |  1 |  1 |
     -----------------------------------------------
 
-    Instruments setting with fast rate (sent at lower rate of ~ 500 ms)
+    TM1b) Instruments setting with fast rate (sent at lower rate of ~ 500 ms)
     -----------------------------------------------
     |Byte| Output unit Bit0..Bit3       |Bit5|Bit4|
-    |----|------------------------------|----|----|
+    |----+------------------------------+----+----|
     |  1 | Device code, 1110 is 29s     |  0 |  0 |
     |  2 | Curr. type, meas. variable 1 |  1 |  1 |
     |  3 | Special character 1          |  1 |  1 |
@@ -43,7 +44,7 @@ class OpenMetra:
     |  5 | Measuring range, sign 1      |  1 |  1 |
     -----------------------------------------------
 
-    Ranges: V AC, V AC+DC, I AC+DC, Ohm, Ohm with buzzer, F, Hz , Temp., dB,
+    TM2) Ranges: V AC, V AC+DC, I AC+DC, Ohm, Ohm with buzzer, F, Hz , Temp., dB,
     V-diode, V-diode with buzzer, Events, Counter, Mains analysis and Power.
     Also V DC, A DC and functions when send interval >50 ms.
     -----------------------------------------------
@@ -65,6 +66,48 @@ class OpenMetra:
     -----------------------------------------------
     29S: In case of power measurement there are sent 3 of these blocks
     with delay 200 ms in order power - W, voltage - V, current - A.
+
+    TM3b) Measurement function encoding (also TF)
+    -------------------------------------------------
+    | Function  | Variable2 | Variable1 |   Index   |
+    |-----------+-----------+-----------+-----------|
+    |    -      |   0000    |   0000    |      0    |
+    |  V DC     |   0000    |   0001    |      1    |
+    |  V ACDC   |   0000    |   0010    |      2    |
+    |  V AC     |   0000    |   0011    |      3    |
+    | mA DC     |   0000    |   0100    |      4    |
+    | mA ACDC   |   0000    |   0101    |      5    |
+    |  A DC     |   0000    |   0110    |      6    |
+    |  A ACDC   |   0000    |   0111    |      7    |
+    |-----------+-----------+-----------+-----------|
+    |  kOhm     |   0000    |   1000    |      8    |
+    |  Farad    |   0000    |   1001    |      9    |
+    |  dBV      |   0000    |   1010    |     10    |
+    |  Hz UACDC |   0000    |   1011    |     11    |
+    |  Hz UAC   |   0000    |   1100    |     12    |
+    |  W (mA)   |   0000    |   1101    |     13    |
+    |  W (A)    |   0000    |   1110    |     14    |
+    |  Diode    |   0000    |   1111    |     15    |
+    |-----------+-----------+-----------+-----------|
+    | Dio buzz  |   0001    |   0000    |     16    |
+    | kOhm buzz |   0001    |   0001    |     17    |
+    |  Temp     |   0001    |   0010    |     18    |
+    |    -      |   0001    |   0011    |     19    |
+    |    -      |   0001    |   0100    |     20    |
+    |    -      |   0001    |   0101    |     21    |
+    |    -      |   0001    |   0110    |     22    |
+    |    -      |   0001    |   0111    |     23    |
+    |-----------+-----------+-----------+-----------|
+    |    -      |   0001    |   1000    |     24    |
+    |    -      |   0001    |   1001    |     25    |
+    |    -      |   0001    |   1010    |     26    |
+    | mA (W)    |   0001    |   1011    |     27    |
+    |  A (W)    |   0001    |   1100    |     28    |
+    |  V (W)    |   0001    |   1101    |     29    |
+    |  V DC     |   0001    |   1110    |     30    |
+    |  V DC     |   0001    |   1111    |     31    |
+    -------------------------------------------------
+
     See also:
     https://www.mikrocontroller.net/attachment/22868/22SM-29S_Interface_Protocol1.pdf
     and
@@ -75,9 +118,10 @@ class OpenMetra:
     # the class variables #
     #######################
 
+    METRAHIT28S = 0x0C
     METRAHIT29S = 0x0E
 
-    _known_devices = [ 0x0E ]  # METRAHit 29s, add other similar devices, e.g. 0x0C for 28s
+    _known_devices = [ 0x0E ]   # METRAHit 29s, add other similar devices, e.g. 0x0C for 28s
     _serial_device = ''         # serial device
     _timeout = 10               # seriel timeout
     _BD232 = None               # serial object for interface
@@ -99,14 +143,14 @@ class OpenMetra:
     _rate = 0                   # measurement rate
     _verbose = 0                # debugging level
 
-    _units = ['', 'V_DC', 'V_ACDC', 'V_AC',     # 0x00 .. 0x03
-        'mA_DC', 'mA_ACDC', 'A_DC', 'A_ACDC',   # 0x04 .. 0x07
-        'kOhm', 'nF', 'dBV', 'Hz',              # 0x08 .. 0x0B
-        'Hz', 'W', 'W', 'V_diode',              # 0x0C .. 0x0F
-        'V_diode', '0x11', '°C', '0x13',        # 0x10 .. 0x13
-        '0x14', '0x15', '0x16', '0x17',         # 0x14 .. 0x17
-        '0x18', '0x19', '0x1A', 'mA',           # 0x18 .. 0x1B
-        'A', 'V', '0x1E', '0x1F',               # 0x1C .. 0x1F
+    _units = ['', 'V_DC', 'V_ACDC', 'V_AC',             # 0x00 .. 0x03
+        'mA_DC', 'mA_ACDC', 'A_DC', 'A_ACDC',           # 0x04 .. 0x07
+        'kOhm', 'nF', 'dBV', 'Hz',                      # 0x08 .. 0x0B
+        'Hz', 'W', 'W', 'V_diode',                      # 0x0C .. 0x0F
+        'V_diode_buzzer', 'kOhm_buzzer', '°C', '0x13',  # 0x10 .. 0x13
+        '0x14', '0x15', 'Pulse_Wh', 'V_TRMS',           # 0x14 .. 0x17
+        'Counter', 'Events_Uacdc', 'Events_Uac', 'mA',  # 0x18 .. 0x1B
+        'A', 'V', '0x1E', '0x1F',                       # 0x1C .. 0x1F
     ]
 
     CMD_FW_STATUS = 3
@@ -125,7 +169,7 @@ class OpenMetra:
     # the class interface #
     #######################
 
-    def __init__( self, serial_device = '/dev/ttyUSB0', timeout = 10, known_devices = [ 0x0E ]  ):
+    def __init__( self, serial_device = '/dev/ttyUSB0', timeout = 10, known_devices = [ METRAHIT28S, METRAHIT29S ] ):
         'Init internal data, e.g. the name of serial device'
         self._serial_device = serial_device
         self._known_devices = known_devices
@@ -220,6 +264,32 @@ class OpenMetra:
         return self._decode_rs()
 
 
+    def get_function( self, index ):
+        'Return the measurement function according table TM3b and TF'
+        if index < len( self._units ):
+            return self._units[ index ]
+        else:
+            return ''
+
+
+    def decode_unit( self, ctmv=None ):
+        'Prepare unit string'
+        if ctmv is None:
+            ctmv = self._ctmv
+        if ctmv is None:
+            # not yet seen (fast mode)
+            self._unit = ''
+            self._unit_long = ''
+            return ''
+        if ctmv < len( self._units ):
+            self._unit_long = self._units[ ctmv ]
+            self._unit = self._unit_long.split('_')[0]
+        else:
+            self._unit = hex( ctmv )
+            self._si_unit = hex( ctmv )
+        return self._unit
+
+
     def send_command( self, cmd, p0=0, p1=0x3F, p2=0x3F, p3=0x3F, p4=0x3F, p5=0x3F, p6=0x3F, p7=0x3F, p8=0x3F ):
         '''Send a command to the meter using the format described in:
         Interface protocol: Bidirectional communication PC - multimeter'''
@@ -227,7 +297,8 @@ class OpenMetra:
         self.flush_input()
         data = bytearray()
         # set up the 13 bytes for sending
-        data.append( 0x07 ) # addr<<2 | 0x03; addr = 0: all devices
+        addr = 0 # addr can be 1..15, 0: all devices
+        data.append( addr<<2 | 0x03 )
         data.append( 0x2b ) # '+'
         data.append( 0x3f ) # '?'
         data.append( cmd ) #
@@ -279,45 +350,48 @@ class OpenMetra:
         return response
 
 
-    def decode( self, rsp, outfile=sys.stdout ):
+    def decode_rsp( self, rsp, outfile=sys.stdout ):
         '''Decode the received response after sending a command'''
-        err_msg = [ 'err_0', 'err_1', 'incorrect checksum', 'incorrect block length', 'wrong header', 'parameter out of range'  ]
+        err_msg = [ 'err_0', 'command not used', 'incorrect checksum', 'incorrect block length', 'wrong header', 'parameter out of range'  ]
         adr = rsp[ 0 ]
-        if rsp[ 1 ] == 0x20: # error
+        if 0 == rsp[ 1 ] & 0x0F: # error
             error = rsp[ 2 ]
-            if error in range( 6 ):
+            if error in range( len( err_msg ) ):
                 error = err_msg[ error ]
-            print( 'decode error:', error, file=sys.stderr )
-        elif rsp[1] != 0x27 or rsp[2] != 0x3F:
-            print( 'decode error:', hex( rsp[1] ), hex( rsp[2] ), file=sys.stderr )
+            print( 'Request error:', error, file=sys.stderr )
+        elif 0x27 != rsp[1] or 0x3F != rsp[2]:
+            print( 'Response error:', hex( rsp[1] ), hex( rsp[2] ), file=sys.stderr )
         elif rsp[13] != self._chksum_13( rsp ):
-            print( 'checksum error:', hex( rsp[13] ), hex( self._chksum_13( rsp ) ), file=sys.stderr )
-        elif rsp[3] == 1: # Read first free and occupied address - unimplemented
-            if self._decode_1( rsp, outfile ):
+            print( 'Checksum error:', hex( rsp[13] ), hex( self._chksum_13( rsp ) ), file=sys.stderr )
+        elif 1 == rsp[3]: # Read first free and occupied address - unimplemented
+            if self._decode_rsp_1( rsp, outfile ):
                 return
-        elif rsp[3] == 2: # Clear all RAM in multimeter - unimplemented
-            if self._decode_2( rsp, outfile ):
+        elif 2 == rsp[3]: # Clear all RAM in multimeter - unimplemented
+            if self._decode_rsp_2( rsp, outfile ):
                 return
-        elif rsp[3] == 3: # Read firmware version and status
-            if self._decode_3( rsp, outfile ):
+        elif 3 == rsp[3]: # Read firmware version and status
+            if self._decode_rsp_3( rsp, outfile ):
                 return
-        elif rsp[3] == 4: # Set real time, date, sample rate, trigger, ... - unimplemented
-            if self._decode_4( rsp, outfile ):
+        elif 4 == rsp[3]: # Set real time, date, sample rate, trigger, ... - unimplemented
+            if self._decode_rsp_4( rsp, outfile ):
                 return
-        elif rsp[3] == 5: # Read real time, date, sample rate, trigger... - unimplemented
-            if self._decode_5( rsp, outfile ):
+        elif 5 == rsp[3]: # Read real time, date, sample rate, trigger... - unimplemented
+            if self._decode_rsp_5( rsp, outfile ):
                 return
-        elif rsp[3] == 6: # Set modes or power off - unimplemented
-            if self._decode_6( rsp, outfile ):
+        elif 6 == rsp[3]: # Set modes or power off - unimplemented
+            if self._decode_rsp_6( rsp, outfile ):
                 return
-        elif rsp[3] == 7: # Set measurement function, range, autom/man. - unimplemented
-            if self._decode_7( rsp, outfile ):
+        elif 7 == rsp[3]: # Set measurement function, range, autom/man. - unimplemented
+            if self._decode_rsp_7( rsp, outfile ):
                 return
-        elif rsp[3] == 8: # Get one measurement value
-            if self._decode_8( rsp, outfile ):
+        elif 8 == rsp[3]: # Get one measurement value
+            if self._decode_rsp_8( rsp, outfile ):
                 return
+        n = 0
+        print( 'Response:')
         for b in rsp:
-            print( hex( b ), b, file=outfile )
+            print('{0:2d}: 0x{1:02x} {2:2d}'.format(n, b, b))
+            n += 1
 
 
     ######################
@@ -412,24 +486,6 @@ class OpenMetra:
         if byte < 0x30:
             self._unexpected_start = True
         return byte & 0x0F
-
-
-    def decode_unit( self, ctmv=None ):
-        'Prepare unit string'
-        if ctmv is None:
-            ctmv = self._ctmv
-        if ctmv is None:
-            # not yet seen (fast mode)
-            self._unit = ''
-            self._unit_long = ''
-            return ''
-        if ctmv < len( self._units ):
-            self._unit_long = self._units[ ctmv ]
-            self._unit = self._unit_long.split('_')[0]
-        else:
-            self._unit = hex( ctmv )
-            self._si_unit = hex( ctmv )
-        return self._unit
 
 
     def _adjust_dp( self ):
@@ -545,15 +601,17 @@ class OpenMetra:
         return buf
 
 
-    def _decode_1( self, rsp, outfile=sys.stdout ):
+    def _decode_rsp_1( self, rsp, outfile=sys.stdout ):
+        'Read first free and occupied address - unimplemented'
         return False
 
 
-    def _decode_2( self, rsp, outfile=sys.stdout ):
+    def _decode_rsp_2( self, rsp, outfile=sys.stdout ):
+        'Clear all RAM in multimeter - unimplemented'
         return False
 
 
-    def _decode_3( self, rsp, outfile=sys.stdout ):
+    def _decode_rsp_3( self, rsp, outfile=sys.stdout ):
         '''Decode the received data from command 3
         (Read version A.B of multimeter firmware, status of the multimeter)
         response to cmd3:
@@ -572,38 +630,39 @@ class OpenMetra:
         return True
 
 
-    def _decode_4( self, rsp, outfile=sys.stdout ):
+    def _decode_rsp_4( self, rsp, outfile=sys.stdout ):
+        'Set real time, date, sample rate, trigger, ... - unimplemented'
         return False
 
 
-    def _decode_5( self, rsp, outfile=sys.stdout ):
-        if rsp[ 4 ] == 0:
+    def _decode_rsp_5( self, rsp, outfile=sys.stdout ):
+        'Read real time, date, sample rate, trigger...'
+        if rsp[ 4 ] == 0: # get real time
             print( rsp[12], rsp[11], ':',  rsp[10], rsp[9], ':', rsp[8], rsp[7],
                   '.', int(100 * (rsp[6] / 16 + rsp[5] / 256) ), sep='' )
             return True
-        elif rsp[ 4 ] == 1:
+        elif rsp[ 4 ] == 1: # get real date
             print( 20, rsp[12], rsp[11], '-',  rsp[10], rsp[9], '-', rsp[8], rsp[7], sep='' )
             return True
         else:
             return False
 
 
-    def _decode_6( self, rsp, outfile=sys.stdout ):
+    def _decode_rsp_6( self, rsp, outfile=sys.stdout ):
+        '''Decode the response for "set mode" (normal, send, off, ...)'''
         return False
 
 
-    def _decode_7( self, rsp, outfile=sys.stdout ):
-        funcs = [ '', 'V_DC', 'V_ACDC', 'V_AC', 'mA_DC', 'mA_ACDC', 'A_DC', 'A_ACDC',
-                'Ohm', 'F', 'dB', 'Hz Uacdc', 'Hz Uac', 'W', 'W', 'Diode', 'Diode buzzer',
-                'Ohm buzzer', 'Temp', '-', '-', 'Press', 'pulseW', 'TRMS mains',
-                'Counter', 'Events Uacdc', 'Events Uac', 'pulse on mains', 'dropout on mains' ]
-        if rsp[ 7 ] < len( funcs ):
-            print( 'Measurement function:', funcs[ rsp[7] ] )
+    def _decode_rsp_7( self, rsp, outfile=sys.stdout ):
+        '''Decode the response from command "set measuring function"'''
+        function = self.get_function( rsp[7] )
+        if function != '':
+            print( 'Measurement function:', function )
             return True
         return False
 
 
-    def _decode_8( self, rsp, outfile=sys.stdout ):
+    def _decode_rsp_8( self, rsp, outfile=sys.stdout ):
         '''Decode the received data from command 8
         (Command for getting one measured value from the multimeter)
         response to cmd8: 5:fkt, 6:status, 7..12 digits, 13:chksum'''
@@ -629,7 +688,7 @@ class OpenMetra:
 if __name__ == "__main__":
     with OpenMetra() as mh:                     # open connection
         if mh is None:                          # check
-            print( 'connect error', file=sys.stderr)
+            print( 'Connect error', file=sys.stderr)
             sys.exit()
         while True:                             # run forever, stop with ^C
             try:

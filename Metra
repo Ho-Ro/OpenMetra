@@ -52,7 +52,7 @@ ap.add_argument('-o',
                 '--on-off',
                 dest = 'on_off',
                 action = 'store_true',
-                help = 'switch meter automatically on/off')
+                help = 'switch meter on, select send mode and rate and switch off after measurement')
 ap.add_argument('-O',
                 '--overload',
                 dest = 'print_overload',
@@ -128,7 +128,7 @@ with OpenMetra( options.serial_device, timeout=options.timeout ) as mh:
 
             if options.verbose:
                 mh.send_command( mh.CMD_FW_STATUS )
-                mh.decode( mh.get_cmd_response(), sys.stderr ) #
+                mh.decode_rsp( mh.get_cmd_response(), sys.stderr ) #
 
             mh.set_rate( options.rate )
 

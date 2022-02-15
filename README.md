@@ -6,7 +6,9 @@
 
 Receives data from a multimeter Gossen METRAHit 29S via BD232 serial interface.
 
-Tested with e.g. FTDI RS232 USB connection to /dev/ttyUSB0 (linux).
+Tested with FTDI and similar RS232 USB serial interfaces to "/dev/ttyUSB0" (linux).
+
+Should also work for Windows with e.g. serial_device="COM8".
 
 Activate the transmission on the instrument with: 'SEt v SEnd <-/ OFF v on <-/',
 or at switch-on by depressing **DATA/CLEAR** and **ON** button together.
@@ -44,12 +46,12 @@ with OpenMetra() as mh: # open connection to '/dev/ttyUSB0', the serial path can
             break                           # exit
 ```
 
-The provided program [OpenMetra](https://github.com/Ho-Ro/OpenMetra/blob/main/OpenMetra)
+The provided program [Metra](https://github.com/Ho-Ro/OpenMetra/blob/main/Metra)
 allows to customize the received date with some options:
 
 ````
-usage: OpenMetra [-h] [-c] [-d SERIAL_DEVICE] [-f] [-g] [-n NUMBER] [-o] [-O] [-r RATE] [-s SECONDS]
-                 [-t] [-T TIMEOUT] [-u] [-U] [-V]
+usage: Metra [-h] [-c] [-d SERIAL_DEVICE] [-f] [-g] [-n NUMBER] [-o] [-O] [-r RATE] [-s SECONDS]
+             [-t] [-T TIMEOUT] [-u] [-U] [-V]
 
 Get data from Gossen METRAHit 29S
 
@@ -62,7 +64,7 @@ optional arguments:
   -g, --german          use comma as decimal separator, semicolon as field separator
   -n NUMBER, --number NUMBER
                         get NUMBER measurement values
-  -o, --on-off          switch meter automatically on/off
+  -o, --on-off          switch meter on, select send mode and rate and switch off after measurement
   -O, --overload        print OL values as "None" instead of skipping
   -r RATE, --rate RATE  select index for measurement rate: 0:50ms, 1:0.1s, 2:0.2s, 3:0.5s, 4:1s,
                         5:2s, 6:5s, 7:10s, 8:20s, 9:30s, 10:1min, 11:2min, 12:5min, 13:10min,
@@ -83,7 +85,7 @@ displays the measured data nicely:
 ````
 usage: MetraPlot [-h] [-t TITLE] [-f FIRST_SAMPLE] [-l LAST_SAMPLE] [-V] [infile]
 
-Plot data - e.g. received from Gossen METRAHit 29S via program 'OpenMetra'
+Plot data - e.g. received from Gossen METRAHit 29S via program 'Metra'
 
 positional arguments:
   infile                read measurement data from optional infile, use stdin otherwise
@@ -132,7 +134,7 @@ just type `make`. `make distclean` removes all created data to prepare for a cle
 You need to install python3-stdeb, the Python to Debian source package conversion plugins for distutils.
 After success the package is available in directory `deb_dist`.
 You can do a clean install (as root) with `dpkg -i deb_dist/openmetra_*_all.deb`, the python module `openmetra` is put into
-the python3 library path, the script OpenMetra is copied into `/usr/bin`. `dpkg -P openhantek` does a clean uninstall.
+the python3 library path, the scripts `Metra*` are copied into `/usr/bin`. `dpkg -P openhantek` does a clean uninstall.
 
 
 ## Protocol Definition:
@@ -141,7 +143,7 @@ The instrument sends the data blocks with 9600 Bd, 8 bits + Start + Stop bit (on
 
 ### Fast Mode
 
-Measured data with fast rate (rate 50 ms, V_DC, A_DC only)
+TM1a) Measured data with fast rate (rate 50 ms, V_DC, A_DC only)
 ````
 -----------------------------------------------
 |Byte| Output unit Bit0..Bit3       |Bit5|Bit4|
@@ -155,7 +157,7 @@ Measured data with fast rate (rate 50 ms, V_DC, A_DC only)
 -----------------------------------------------
 ````
 
-Instruments setting with fast rate (sent at lower rate of ~ 500 ms)
+TM1b) Instruments setting with fast rate (sent at lower rate of ~ 500 ms)
 ````
 -----------------------------------------------
 |Byte| Output unit Bit0..Bit3       |Bit5|Bit4|
@@ -170,7 +172,7 @@ Instruments setting with fast rate (sent at lower rate of ~ 500 ms)
 
 ### Slow Mode
 
-Ranges: V AC, V AC+DC, I AC+DC, Ohm, Ohm with buzzer, F, Hz , Temp., dB,
+TM2) Ranges: V AC, V AC+DC, I AC+DC, Ohm, Ohm with buzzer, F, Hz , Temp., dB,
 V-diode, V-diode with buzzer, Events, Counter, Mains analysis and Power.
 Also V DC, A DC and functions when send interval >50 ms.
 ````
@@ -200,47 +202,51 @@ with delay 200 ms in order power - W, voltage - V, current - A.
 The meter's function is transmitted in `Current type measuring variable 1` (fast mode)
 or `Current type measuring variable 1` and `Current type measuring variable 2` for slow mode.
 Thes values were verified with my METRAHit 29s:
+TM3b) Measurement function encoding (also TF)
 ````
--------------------------------------
-| Function  | Variable2 | Variable1 |
-|    -      |   0000    |   0000    |
-|  V DC     |   0000    |   0001    |
-|  V ACDC   |   0000    |   0010    |
-|  V AC     |   0000    |   0011    |
-| mA DC     |   0000    |   0100    |
-| mA ACDC   |   0000    |   0101    |
-|  A DC     |   0000    |   0110    |
-|  A ACDC   |   0000    |   0111    |
-|-----------+-----------+-----------|
-|  Ohm      |   0000    |   1000    |
-|  Farad    |   0000    |   1001    |
-|  dBV      |   0000    |   1010    |
-|  Hz UACDC |   0000    |   1011    |
-|  Hz UAC   |   0000    |   1100    |
-|  W (mA)   |   0000    |   1101    |
-|  W (A)    |   0000    |   1110    |
-|  Diode    |   0000    |   1111    |
-|-----------+-----------+-----------|
-| Dio buzz  |   0001    |   0000    |
-| Ohm buzz  |   0001    |   0001    |
-|  Temp     |   0001    |   0010    |
-|    -      |   0001    |   0011    |
-|    -      |   0001    |   0100    |
-|    -      |   0001    |   0101    |
-|    -      |   0001    |   0110    |
-|    -      |   0001    |   0111    |
-|-----------+-----------+-----------|
-|    -      |   0001    |   1000    |
-|    -      |   0001    |   1001    |
-|    -      |   0001    |   1010    |
-| mA (W)    |   0001    |   1011    |
-|  A (W)    |   0001    |   1100    |
-|  V (W)    |   0001    |   1101    |
-|  V DC     |   0001    |   1110    |
-|  V DC     |   0001    |   1111    |
--------------------------------------
+-------------------------------------------------
+| Function  | Variable2 | Variable1 |   Index   |
+|-----------+-----------+-----------+-----------|
+|    -      |   0000    |   0000    |      0    |
+|  V DC     |   0000    |   0001    |      1    |
+|  V ACDC   |   0000    |   0010    |      2    |
+|  V AC     |   0000    |   0011    |      3    |
+| mA DC     |   0000    |   0100    |      4    |
+| mA ACDC   |   0000    |   0101    |      5    |
+|  A DC     |   0000    |   0110    |      6    |
+|  A ACDC   |   0000    |   0111    |      7    |
+|-----------+-----------+-----------+-----------|
+|  kOhm     |   0000    |   1000    |      8    |
+|  Farad    |   0000    |   1001    |      9    |
+|  dBV      |   0000    |   1010    |     10    |
+|  Hz UACDC |   0000    |   1011    |     11    |
+|  Hz UAC   |   0000    |   1100    |     12    |
+|  W (mA)   |   0000    |   1101    |     13    |
+|  W (A)    |   0000    |   1110    |     14    |
+|  Diode    |   0000    |   1111    |     15    |
+|-----------+-----------+-----------+-----------|
+| Dio buzz  |   0001    |   0000    |     16    |
+| kOhm buzz |   0001    |   0001    |     17    |
+|  Temp     |   0001    |   0010    |     18    |
+|    -      |   0001    |   0011    |     19    |
+|    -      |   0001    |   0100    |     20    |
+|    -      |   0001    |   0101    |     21    |
+|    -      |   0001    |   0110    |     22    |
+|    -      |   0001    |   0111    |     23    |
+|-----------+-----------+-----------+-----------|
+|    -      |   0001    |   1000    |     24    |
+|    -      |   0001    |   1001    |     25    |
+|    -      |   0001    |   1010    |     26    |
+| mA (W)    |   0001    |   1011    |     27    |
+|  A (W)    |   0001    |   1100    |     28    |
+|  V (W)    |   0001    |   1101    |     29    |
+|  V DC     |   0001    |   1110    |     30    |
+|  V DC     |   0001    |   1111    |     31    |
+-------------------------------------------------
 ````
 
 - See also:
 https://www.mikrocontroller.net/attachment/22868/22SM-29S_Interface_Protocol1.pdf
+and
+https://github.com/sigrokproject/libsigrok/blob/master/src/hardware/gmc-mh-1x-2x/protocol.c
 

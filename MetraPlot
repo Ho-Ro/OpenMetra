@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 '''
-Simple demo program that reads the output of e.g. 'OpenMetra'
+Simple demo program that reads the output of e.g. 'Metra'
 and plots the measured values - either over time or by number.
 It uses the extra python package 'matplotlib' for visualisation.
 Install with: 'apt install python3-matplotlib' if missing.
@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 
 # create the parser
-ap = argparse.ArgumentParser(description='Plot data - e.g. received from Gossen METRAHit 29S via program \'OpenMetra\'')
+ap = argparse.ArgumentParser(description="Plot data - e.g. received from Gossen METRAHit 29S via program 'Metra'")
 
 # add the arguments
 ap.add_argument( '-t', '--title',

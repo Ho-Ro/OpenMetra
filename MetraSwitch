@@ -60,23 +60,23 @@ with OpenMetra( options.device ) as mh: # open connection to '/dev/ttyUSB0', the
         if options.off:
             mh.set_mode( mh.MODE_NORMAL )       # switch to normal mode
             mh.send_command( mh.CMD_FW_STATUS ) # get status
-            mh.decode( mh.get_cmd_response(), sys.stderr )
+            mh.decode_rsp( mh.get_cmd_response(), sys.stderr )
             mh.set_mode( mh.MODE_OFF )          # switch off
 
         elif options.function:
             mh.set_function( options.function ) # set measurement function
-            mh.decode( mh.get_cmd_response(), sys.stderr )
+            mh.decode_rsp( mh.get_cmd_response(), sys.stderr )
 
         else:
             mh.send_command( mh.CMD_FW_STATUS )
-            mh.decode( mh.get_cmd_response(), sys.stderr )
+            mh.decode_rsp( mh.get_cmd_response(), sys.stderr )
             # rate 0: 0.05s, 1: 0.1s, 2:0.2s, 3:0.5s - FAST MODE
             # 4:1s, 5: 2s, 6:5s, 7:10s, 8:20s, 9:30s, 10:60s, 11:2min, 12:5min, 13:10min
             rate = options.rate
             rate = mh.set_rate( rate )
             print( 'Measurement rate:', rate, 's' )
             if options.verbose > 1:
-                mh.decode( mh.get_cmd_response(), sys.stderr ) #
+                mh.decode_rsp( mh.get_cmd_response(), sys.stderr ) #
 
             mh.set_mode( mh.MODE_SEND ) # switch to send mode
 
