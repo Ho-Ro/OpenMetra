@@ -9,9 +9,11 @@ import argparse
 from openmetra import OpenMetra
 
 # Create the parser
-ap = argparse.ArgumentParser(description=
-                'Gossen METRAHit 29S: switch on and enable send mode or switch measurement function or switch off')
-
+ap = argparse.ArgumentParser(allow_abbrev=False,
+                description=
+                '''Gossen METRAHit 29S: switch off or select function or select data rate or set RTC time and date.
+                Without specifying an action the meter is just switched on.''')
+group = ap.add_mutually_exclusive_group()
 # Add the arguments
 
 ap.add_argument('-d',
@@ -19,27 +21,28 @@ ap.add_argument('-d',
                 action = 'store',
                 default = '/dev/ttyUSB0',
                 help = 'device path of serial interface, default is "/dev/ttyUSB0"' )
-ap.add_argument('-f',
-                '--function',
+group.add_argument('--off',
+                action = 'store_true',
+                help = 'switch the device off' )
+group.add_argument('--function',
                 action = 'store',
                 type = int,
                 dest = 'function',
-                default = 0,
+                default = None,
                 help = '''select measurement function: 1:V_DC, 2:V_ACDC, 3:V_AC, 4:mA_DC, 5:mA_ACDC,
                 6:A_DC, 7:A_ACDC, 8:Ohm, 9:F, 10:dB, 11:Hz_Uacdc, 12:Hz_Uac, 17:Ohm buzzer,
                 18:Temp, 22:pulseW, 23TRMS_mains, 24:Counter, 25:Events_Uacdc, 26:Events_Uac''' )
-ap.add_argument('-o',
-                '--off',
-                action = 'store_true',
-                help = 'switch the device off' )
-ap.add_argument('-r',
-                '--rate',
+group.add_argument('--rate',
                 action = 'store',
                 type = int,
                 dest = 'rate',
-                default = 4,
-                help = '''select index for measurement rate: 0:50ms, 1:0.1s, 2:0.2s, 3:0.5s, 4:1s, 5:2s, 6:5s,
-                7:10s, 8:20s, 9:30s, 10:1min, 11:2min, 12:5min, 13:10min, default: 4 (1s)''' )
+                default = None,
+                help = '''select index of measurement rate: 0:50ms, 1:0.1s, 2:0.2s, 3:0.5s, 4:1s, 5:2s, 6:5s,
+                7:10s, 8:20s, 9:30s, 10:1min, 11:2min, 12:5min, 13:10min''' )
+group.add_argument('--set_rtc',
+                action = 'store_true',
+                dest = 'set_rtc',
+                help = '''set meter RTC time and date from local time''' )
 ap.add_argument('-V',
                 action = 'count',
                 dest = 'verbose',
@@ -63,11 +66,11 @@ with OpenMetra( options.device ) as mh: # open connection to '/dev/ttyUSB0', the
             mh.decode_rsp( mh.get_cmd_response(), sys.stderr )
             mh.set_mode( mh.MODE_OFF )          # switch off
 
-        elif options.function:
+        elif options.function is not None:
             mh.set_function( options.function ) # set measurement function
             mh.decode_rsp( mh.get_cmd_response(), sys.stderr )
 
-        else:
+        elif options.rate is not None:
             mh.send_command( mh.CMD_FW_STATUS )
             mh.decode_rsp( mh.get_cmd_response(), sys.stderr )
             # rate 0: 0.05s, 1: 0.1s, 2:0.2s, 3:0.5s - FAST MODE
@@ -77,8 +80,29 @@ with OpenMetra( options.device ) as mh: # open connection to '/dev/ttyUSB0', the
             print( 'Measurement rate:', rate, 's' )
             if options.verbose > 1:
                 mh.decode_rsp( mh.get_cmd_response(), sys.stderr ) #
-
             mh.set_mode( mh.MODE_SEND ) # switch to send mode
+
+        elif options.set_rtc:
+            mh.send_command( mh.CMD_FW_STATUS )
+            mh.decode_rsp( mh.get_cmd_response(), sys.stderr )
+            tm = time.localtime()
+            year = tm.tm_year % 100
+            month = tm.tm_mon - 1   # jan -> 00, .., dec -> 11
+            day = tm.tm_mday - 1    # 00 .. 27 or 29 or 30
+            hour = tm.tm_hour
+            minute = tm.tm_min
+            second = tm.tm_sec
+
+            mh.send_command( 4, 0, 0, 0, second%10, second//10, minute%10, minute//10, hour%10, hour//10 ) # set time
+            mh.decode_rsp( mh.get_cmd_response(), sys.stderr ) #
+
+            mh.send_command( 4, 1, 0, 0, day%10, day//10, month%10, month//10, year%10, year//10 ) # set date
+            mh.decode_rsp( mh.get_cmd_response(), sys.stderr ) #
+
+        else:
+            mh.send_command( mh.CMD_FW_STATUS )
+            mh.decode_rsp( mh.get_cmd_response(), sys.stderr )
+
 
     except KeyboardInterrupt:           # ^C pressed, stop measurement
         print( '' )

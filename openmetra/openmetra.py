@@ -195,7 +195,9 @@ class OpenMetra:
     def open( self, timeout=10 ):
         '''Open the serial connection and return "self" on success, "None" on error'''
         try:
-            # open connection to BD232 interface (not all USB adapter support "bytesize=6)
+            # open connection to BD232 interface
+            # do not use bytesize=6, use 8 bit and mask received values with 0x3F
+            # PL2303 supports 5,6,7,8 bit, ft232 supports only 7 or 8 bit
             self._BD232 = serial.Serial( self._serial_device, baudrate = 9600, timeout = timeout, exclusive=True )
         except:
             return None
@@ -372,16 +374,16 @@ class OpenMetra:
         elif 3 == rsp[3]: # Read firmware version and status
             if self._decode_rsp_3( rsp, outfile ):
                 return
-        elif 4 == rsp[3]: # Set real time, date, sample rate, trigger, ... - unimplemented
-            if self._decode_rsp_4( rsp, outfile ):
+        elif 4 == rsp[3]: # Set real time, date, sample rate, trigger, ...
+            if self._decode_rsp_4_5( rsp, outfile ):
                 return
-        elif 5 == rsp[3]: # Read real time, date, sample rate, trigger... - unimplemented
-            if self._decode_rsp_5( rsp, outfile ):
+        elif 5 == rsp[3]: # Read real time, date, sample rate, trigger...
+            if self._decode_rsp_4_5( rsp, outfile ):
                 return
-        elif 6 == rsp[3]: # Set modes or power off - unimplemented
+        elif 6 == rsp[3]: # Set modes or power off
             if self._decode_rsp_6( rsp, outfile ):
                 return
-        elif 7 == rsp[3]: # Set measurement function, range, autom/man. - unimplemented
+        elif 7 == rsp[3]: # Set measurement function, range, autom/man.
             if self._decode_rsp_7( rsp, outfile ):
                 return
         elif 8 == rsp[3]: # Get one measurement value
@@ -619,14 +621,20 @@ class OpenMetra:
         8:range, 9:rangeU (in P mode), 10:rangeI (in P mode),
         11:ubat*10, 12:model, 13:chksum'''
         functions = [ '', 'AUTO', 'V_AC', 'V_ACDC', 'V_DC', 'Ohm', 'Diode', '°C', 'F', 'mA', 'A' ]
-        print( 'FW ver : ', rsp[5], '.', rsp[4], sep='', file=outfile )
+        print( 'Firmware : ', rsp[5], '.', rsp[4], sep='', file=outfile )
         model = rsp[12]
         switch = rsp[6]
+        if switch < len( functions ):
+            function = functions[ switch ]
+        else:
+            function = switch
         if self.METRAHIT29S == model:
             model = 'METRAHit 29S'
-        print( 'Model  :', model, file=outfile )
-        print( 'Switch :', functions[ switch ], file=outfile )
-        print( 'Battery:', round( rsp[11] * 0.1, 1 ) , 'V', file=outfile )
+        elif self.METRAHIT28S == model:
+            model = 'METRAHit 28S'
+        print( 'Model    :', model, file=outfile )
+        print( 'Switch   :',function , file=outfile )
+        print( 'Battery  :', round( rsp[11] * 0.1, 1 ) , 'V', file=outfile )
         return True
 
 
@@ -635,14 +643,24 @@ class OpenMetra:
         return False
 
 
-    def _decode_rsp_5( self, rsp, outfile=sys.stdout ):
+    def _decode_rsp_4_5( self, rsp, outfile=sys.stdout ):
         'Read real time, date, sample rate, trigger...'
         if rsp[ 4 ] == 0: # get real time
-            print( rsp[12], rsp[11], ':',  rsp[10], rsp[9], ':', rsp[8], rsp[7],
-                  '.', int(100 * (rsp[6] / 16 + rsp[5] / 256) ), sep='' )
+            hour = 10 * rsp[ 12 ] + rsp[ 11 ]
+            minute = 10 * rsp[ 10 ] + rsp[ 9 ]
+            second = 10 * rsp[ 8 ] + rsp[ 7 ]
+            millis = int( 1000 * ( rsp[6] / 16 + rsp[5] / 256 ) )
+            print( '{0:02d}:{1:02d}:{2:02d}.{3:03d}'.format( hour, minute, second, millis ) )
             return True
         elif rsp[ 4 ] == 1: # get real date
-            print( 20, rsp[12], rsp[11], '-',  rsp[10], rsp[9], '-', rsp[8], rsp[7], sep='' )
+            year = 10 * rsp[ 12 ] + rsp[ 11 ]
+            if year < 90:
+                year += 2000
+            else:
+                year += 1900
+            month = 10 * rsp[ 10 ] + rsp[ 9 ] + 1
+            day = 10 * rsp[ 8 ] + rsp[ 7 ] + 1
+            print( '{0:4d}-{1:02d}-{2:2d}'.format( year, month, day ) )
             return True
         else:
             return False
