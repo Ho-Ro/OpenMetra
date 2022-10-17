@@ -94,6 +94,11 @@ ap.add_argument('-U',
                 dest = 'print_unit_long',
                 action = 'store_true',
                 help = 'print unit of measured value with explanation, e.g. AC, DC, etc')
+ap.add_argument('-v',
+                '--version',
+                dest = 'version',
+                action = 'store_true',
+                help = 'show openmetra version')
 ap.add_argument('-V',
                 action = 'count',
                 dest = 'verbose',
@@ -103,6 +108,9 @@ ap.add_argument('-V',
 # parse my argument
 options = ap.parse_args()
 
+if options.version:
+    print( f'OpenMetra version {OpenMetra.VERSION}')
+    sys.exit()
 
 # open connection to a Gossen Metrahit device, without argument it uses '/dev/ttyUSB0'
 with OpenMetra( options.serial_device, timeout=options.timeout ) as mh:

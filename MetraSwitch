@@ -43,6 +43,11 @@ group.add_argument('--set_rtc',
                 action = 'store_true',
                 dest = 'set_rtc',
                 help = '''set meter RTC time and date from local time''' )
+ap.add_argument('-v',
+                '--version',
+                action = 'store_true',
+                dest = 'version',
+                help = 'show openmetra version')
 ap.add_argument('-V',
                 action = 'count',
                 dest = 'verbose',
@@ -51,6 +56,10 @@ ap.add_argument('-V',
 
 # parse my argument
 options = ap.parse_args()
+
+if options.version:
+    print( f'OpenMetra version {OpenMetra.VERSION}')
+    sys.exit()
 
 with OpenMetra( options.device ) as mh: # open connection to '/dev/ttyUSB0', the serial path can be an optional parameter
     if mh is None:      # could not conect

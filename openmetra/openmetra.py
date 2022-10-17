@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 
 
+VERSION = '0.3.1'
+
+
 import serial;
 import sys;
 import time;
@@ -118,6 +121,7 @@ class OpenMetra:
     # the class variables #
     #######################
 
+    VERSION = VERSION           # module version
     METRAHIT28S = 0x0C
     METRAHIT29S = 0x0E
 
@@ -638,13 +642,8 @@ class OpenMetra:
         return True
 
 
-    def _decode_rsp_4( self, rsp, outfile=sys.stdout ):
-        'Set real time, date, sample rate, trigger, ... - unimplemented'
-        return False
-
-
     def _decode_rsp_4_5( self, rsp, outfile=sys.stdout ):
-        'Read real time, date, sample rate, trigger...'
+        'Set/Read real time, date, sample rate, trigger...'
         if rsp[ 4 ] == 0: # get real time
             hour = 10 * rsp[ 12 ] + rsp[ 11 ]
             minute = 10 * rsp[ 10 ] + rsp[ 9 ]
@@ -662,7 +661,17 @@ class OpenMetra:
             day = 10 * rsp[ 8 ] + rsp[ 7 ] + 1
             print( '{0:4d}-{1:02d}-{2:2d}'.format( year, month, day ) )
             return True
-        else:
+        else: # uninplemented
+            # rsp[ 4 ] = 2: Sample rate, filter, ALL Store, duration, resolution, phase ...
+            # rsp[ 4 ] = 3: Capture real time, read captured real time
+            # rsp[ 4 ] = 4, 5, 7, 8, 9: Trigger
+            # rsp[ 4 ] = 10: Duration
+            # rsp[ 4 ] = 11: Temperature unit, sensor, temp.ref.value
+            # rsp[ 4 ] = 12: Clip transformer value
+            # rsp[ 4 ] = 13: Reference value dB
+            # rsp[ 4 ] = 14: Internal memory - debug function only
+            # rsp[ 4 ] = 15: Read integer time for max.demand measurement
+            # rsp[ 4 ] = 18: Command Set Generator
             return False
 
 

@@ -130,12 +130,12 @@ optional arguments:
 ### Building and Installing a Debian Package
 
 The provided [Makefile](https://github.com/Ho-Ro/OpenMetra/blob/main/Makefile) allows to build a Debian package,
-just type `make`. `make distclean` removes all created data to prepare for a clean build.
+just type `make`. `make distclean` removes all created data to prepare for a new clean build.
 You need to install python3-stdeb, the Python to Debian source package conversion plugins for distutils.
-After success the package is available in directory `deb_dist`.
-You can do a clean install (as root) with `dpkg -i deb_dist/openmetra_*_all.deb`, the python module `openmetra` is put into
+After success the package is available as `openmetra_*_all.deb`.
+You can do a clean install (as root) with `dpkg -i openmetra_*_all.deb`, the python module `openmetra` is put into
 the python3 library path, the scripts `Metra*` are copied into `/usr/bin`. `dpkg -P openhantek` does a clean uninstall.
-
+It is also possible to build an (experimental) rpm package with `make rpm` as `openmetra-*.noarch.rpm`.
 
 ## Protocol Definition:
 
